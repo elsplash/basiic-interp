@@ -450,25 +450,35 @@ SPAS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
 
   if (!lt->ptr) return NULL;
 
+  lt->len = 0;
   lt->cap = sizeof(spans_linespan_t) * LS_TABLE_INITSZ;
 
   spans_linespan_t  ls_push = spans_ls_creat(file_path);
-  spans_str_t       line    = spans_str_creat();
   unsigned long     lnum    = 1;
+  spans_str_t       line;
 
   FILE* f = fopen(file_path, "rb");
-
   if (!f) return NULL;
 
   int cur = 0;
 
-  while (cur == EOF) {
-    while ((cur = fgetc(f)) == '\n' || cur == EOF)
+  while (cur != EOF)
+  {
+    line = spans_str_creat();
+    /*
+    NOTE: You may fix this in any way you like, since this works,
+          I will not touch it as long as my program runs fine.
+          - ESplash
+    */
+    while (1)
     {
-      if (!spans_str_push_chr(&line, cur)) return NULL;
+      cur = fgetc(f);
+      if (cur == EOF || cur == '\n') break;
+      if (spans_str_push_chr(&line, (char) cur) < 0) return NULL;
     }
     ls_push.str = line;
-    ls_push.num = lnum++;
+    ls_push.num = lnum;
+    lnum++;
 
     if (lt->len == lt->cap)
     {
@@ -501,16 +511,17 @@ SPAS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
 
 SPANS_LS_STATIC unsigned long spans_power(const unsigned long a, const unsigned long b)
 {
+  if (b == 0) return 1L;
   unsigned long o = a;
-  for (unsigned int i = 0; i < b; i++)
+  for (unsigned long i = 0; i < b; i++)
     o *= a;
   return o;
 }
 
 SPANS_LS_STATIC unsigned long spans_numlen(const unsigned long i)
 {
-  unsigned long pow = 1;
-  unsigned long j   = 1;
+  unsigned long pow = 10;
+  unsigned long j   = 0;
 
   while (i / pow != 0)
     pow = spans_power(pow, ++j);
@@ -520,8 +531,9 @@ SPANS_LS_STATIC unsigned long spans_numlen(const unsigned long i)
 
 SPAS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
 {
-  const unsigned int buff_sz = spans_numlen(l->num) + l->str.len + 3;
+  const unsigned int buff_sz = spans_numlen(l->num) + l->str.len + 5;
   char *buff                 = calloc(1, buff_sz);
+  if (!buff) return NULL;
 
   snprintf(buff, buff_sz,
            "%lu | %s",
@@ -536,7 +548,7 @@ SPAS_LS_LIB inline void spans_ls_free(spans_linespan_t *restr l)
 }
 
 SPAS_LS_LIB inline spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *restr lt,
-                                                    const unsigned long        l_idx)
+                                                          const unsigned long        l_idx)
 {
   if (lt->len <= l_idx) return NULL;
 
