@@ -1,17 +1,17 @@
 /* lexer.h
 This header provides the functions for lexing a file, or line.
 The lexing process is aligned with BASIIC.
+it's own.
 */
 
 #ifndef LEXER_DEF
 #define LEXER_DEF
 
 /* NOTE ABOUT PREFIXES:
-I prefer the prefixes be used anyway, just for
-the sake of consistency.
+I prefer the prefixes be used anyway, just for the sake of
+consistency.
 
-This is to make sure the compiler enforces the
-function/struct/enum replacing, and not us.
+This is so we know which struct/enum/function is from where.
 */
 #if defined(LEXER_IMPL) && !defined(SPANS_IMPL)
 #define SPANS_IMPL
@@ -33,6 +33,14 @@ extern "C" {
 #endif
 */
 
+/* lexer_tokentype_t
+This enum is based off the qBasic documentation of every valid
+character by their interpreter (I believe).
+
+Though with some tokens added in for other things not included
+there, like the TT_ID for identifiers, TT_NUM for numbers, and
+TT_ALNUM for alphanumeric labels.
+*/
 typedef enum {
   TT_SPACE,
 
@@ -69,6 +77,7 @@ typedef enum {
   TT_R_ANG_BRACK,
 
   TT_BACKSLASH,
+  TT_NEWLINE,
   TT_AT,
   TT_UNDER,
 
@@ -77,23 +86,75 @@ typedef enum {
   TT_ALNUM,
 } lexer_tokentype_t;
 
+/* lexer_lextoken_t
+The main datatype we're going to work with.
+
+The type declares it's type of token, see "lexer_tokentype_t" for
+more information.
+
+The span contains the section of the linespan that contains said
+token.
+*/
 typedef struct {
   lexer_tokentype_t type;
   spans_strspan_t   span;
 } lexer_lextoken_t;
 
+/* lexer_lextok_vec_t
+This vector is pretty simple. Just a vector implementation for
+our lexer tokens to be stored in.
+*/
 typedef struct {
   lexer_lextoken_t * ltok_ptr;
   unsigned int       len;
   unsigned int       cap;
 } lexer_lextok_vec_t;
 
+/* The lexer state, for the tokenize line function. */
 typedef enum {
   LEXST_ID,
   LEXST_NUM,
   LEXST_ALNUM,
   LEXST_ETC,
 } lexer_lexer_state_t;
+
+/* lexer_ltv_push
+This function is used to push to the lexer token vector
+(lexer_lextoken_vec_t).
+
+The reason why it's static, and not part of the library is
+that it's not supposed to give function mutators to the vector,
+and only view it.
+*/
+LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t *restr ltv, const lexer_lextoken_t p);
+
+/* lexer_fetch_n_push
+Thi fetches the token type from lexer_lexer_state_t, and also
+fetches spans_strspan_t from the parameters given. This is repeated
+twice so it is coupled.
+
+This is supposed to be a helper function for lexer_tokenize_line,
+so I don't think you'd want this in the library anyway.
+*/
+LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
+                                           lexer_lextok_vec_t  *restr out,
+                                     const lexer_lexer_state_t        stat,
+                                     const unsigned long              l_idx,
+                                     const unsigned long              start,
+                                     const unsigned long              len);
+
+/* lexer_tokenize_line
+This function is supposed to be the main tokenizer, so it should
+be the only one in this header.
+
+Why not make a lexer_tokenize_file(), you may ask? Well, it's
+because BASIC is line based, and the main loop is simple enough
+for you to inline yourself.
+
+Remember to free the returned value, as it is heap allocated.
+*/
+LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr l,
+                                                  const unsigned long           l_idx);
 
 #define tokentype_t   lexer_tokentype_t
 #define lextoken_t    lexer_lextoken_t
@@ -105,7 +166,7 @@ typedef enum {
 #ifdef LEXER_IMPL
 #include <ctype.h>
 
-LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t * ltv, const lexer_lextoken_t p)
+LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t *restr ltv, const lexer_lextoken_t p)
 {
   if (!ltv) return -1;
 
@@ -122,7 +183,7 @@ LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t * ltv, const lexer_lextoken_t
 }
 
 LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
-                                     const lexer_lextok_vec_t  *      out,
+                                           lexer_lextok_vec_t  *restr out,
                                      const lexer_lexer_state_t        stat,
                                      const unsigned long              l_idx,
                                      const unsigned long              start,
@@ -184,7 +245,14 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
       len = start = 0;
     } if (c == '\n')
     {
-      if (len != 0) lexer_fetch_n_push(l, out, stat, l_idx, start, len);
+      if (len - 1 != 0) lexer_fetch_n_push(l, out, stat, l_idx, start, len - 1);
+      len = 1;
+      start = i;
+      const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
+      lexer_ltv_push(out, (lexer_lextoken_t) {
+          .span = ss,
+          .type = TT_NEWLINE,
+        });
       break;
     }
 
@@ -211,7 +279,7 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
       token_type = TT_SLASH;
       break;
 
-    case '^';
+    case '^':
       token_type = TT_CARET;
       break;
 
@@ -231,7 +299,7 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
       token_type = TT_POUND;
       break;
 
-    case '$';
+    case '$':
       token_type = TT_DOLLAR;
       break;
 
@@ -252,7 +320,7 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
       break;
 
     case '.':
-      token_type = TT_DOT;
+      token_type = TT_PERIOD;
       break;
 
     case '\'':
@@ -304,7 +372,7 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
       break;
     }
     const strspan_t ss = spans_ss_init(l, l_idx, start, len);
-    const lexer_lextoken ltok = (lexer_lextoken) {
+    const lexer_lextoken_t ltok = (lexer_lextoken_t) {
       .span = ss,
       .type = token_type,
     };
@@ -312,8 +380,6 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
 
   return out;
 }
-
-// lex_file
 
 #endif /* LEXER_IMPL */
 
