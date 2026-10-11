@@ -349,6 +349,22 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
   };
 }
 
+SPANS_STR_LIB int spans_str_equal_chr(const spans_str_t *restr s, const char *restr c)
+{
+  if (!s) return -1;
+  if (!c) return -2;
+  if (strncmp(s->__s, c, s->len) == 0) return 1;
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_equal_str(const spans_str_t *restr a, const spans_str_t *restr b)
+{
+  if (!a) return -1;
+  if (!b) return -2;
+  if (strncmp(a->__s, b->__s, a->len) == 0) return 1;
+  return 0;
+}
+
 SPANS_STR_LIB int spans_str_reserve(spans_str_t *restr s, const unsigned long sz)
 {
   if (!s) return -1;
@@ -444,6 +460,19 @@ SPANS_LS_LIB spans_linespan_t spans_ls_creat(const char *restr file_path)
     .filename = file_path,
     .num      = 1,
   };
+}
+
+SPANS_LS_LIB int spans_ls_equal(const linespan_t *restr a,
+                                const linespan_t *restr b)
+{
+  if (!a) return -1;
+  if (!b) return -2;
+  if (a->num != b->num)
+    return -3;
+  const int rval = spans_str_equal_str(&a->str, &b->str);
+  if (rval < 0)
+    return rval - 3;
+  return rval;
 }
 
 #ifndef LS_TABLE_INITSZ
@@ -599,6 +628,27 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
     .clmn     = start,
     .line_idx = l_idx,
   };
+}
+
+SPANS_SS_LIB int spans_ss_equal_chr(const spans_strspan_t *restr s,
+                                    const char            *restr c)
+{
+  if (!s) return -1;
+  const int rval = spans_str_equal_chr(&s->str, c);
+  if (rval < 0)
+    return rval - 1;
+  return rval;
+}
+
+SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a,
+                                   const spans_strspan_t *restr b)
+{
+  if (!a) return -1;
+  if (!b) return -2;
+  const int rval = spans_str_equal_str(&a->str, &b->str);
+  if (rval < 0)
+    return rval - 2;
+  return rval;
 }
 
 SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,

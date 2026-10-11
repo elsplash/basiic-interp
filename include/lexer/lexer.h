@@ -175,7 +175,10 @@ LEXER_LIB void lexer_lextok_vec_free(lexer_lextok_vec_t *restr ltv);
 
 /* --- IMPLEMENTATION --- */
 
+#define LEXER_IMPL
 #ifdef LEXER_IMPL
+#include <stdlib.h>
+#include <assert.h>
 #include <ctype.h>
 
 LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t *restr ltv, const lexer_lextoken_t p)
@@ -194,6 +197,16 @@ LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t *restr ltv, const lexer_lexto
   return rval;
 }
 
+LEXER_STATIC int lexer_ss_to_lower(spans_strspan_t *restr ss)
+{
+  if (!ss) return -1;
+  for (unsigned long i = 0; i < ss->str.len; i++)
+  {
+    ss->str.__s[i] = tolower(ss->str.__s[i]);
+  }
+  return 0;
+}
+
 LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
                                            lexer_lextok_vec_t  *restr out,
                                      const lexer_lexer_state_t        stat,
@@ -209,6 +222,7 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
   {
   case LEXST_ID:
     token_type = TT_ID;
+    // ...
     break;
 
   case LEXST_NUM:
