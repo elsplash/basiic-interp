@@ -66,8 +66,8 @@ This macro expands so it makes static functions properly.
 #define SPANS_STR_LIB glob_extern
 #endif
 
-#ifndef SPAS_LS_LIB
-#define SPAS_LS_LIB glob_extern
+#ifndef SPANS_LS_LIB
+#define SPANS_LS_LIB glob_extern
 #endif
 
 #ifndef SPANS_LS_STATIC
@@ -82,7 +82,7 @@ This macro expands so it makes static functions properly.
 #define SPANS_SS_STATIC glob_static
 #endif
 
-/* str_t
+/*
 A primitive string datatype, that's supposed to
 abstract the dynamic allocation of char* pointers.
 */
@@ -93,7 +93,7 @@ typedef struct
   unsigned long   cap;
 } spans_str_t;
 
-/* linespan_t
+/*
 This struct will be used for extracting the lines from
 a file, and be used for lexing, which is what the
 strspan_t is for.
@@ -104,7 +104,7 @@ typedef struct {
   unsigned long   num;
 } spans_linespan_t;
 
-/* ls_table_t
+/*
 This struct is used for extracting line spans from a file.
 Which will be used later in lexing.
 */
@@ -115,13 +115,13 @@ typedef struct
   unsigned long cap;
 } spans_ls_table_t;
 
-/* strspan_t
+/*
 This struct will be used for viewing a part of the
 line span. Which is used for the lexer.
 */
 typedef struct
 {
-  spans_str_t         str;
+  spans_str_t   str;
   unsigned long clmn;
 
   /* NOTE
@@ -149,7 +149,7 @@ typedef struct
 } spans_span_t;
 
 /* Returns a default str_t */
-SPANS_STR_LIB inline spans_str_t spans_str_creat(void);
+SPANS_STR_LIB spans_str_t spans_str_creat(void);
 
 /* This initializes the string with s */
 SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s);
@@ -192,7 +192,7 @@ free it.
 SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s);
 
 /* Frees the haep allocated string within s */
-SPANS_STR_LIB inline void spans_str_free(spans_str_t *restr s);
+SPANS_STR_LIB void spans_str_free(spans_str_t *restr s);
 
 /*
 Returns a default linespan_t.
@@ -201,7 +201,7 @@ The defaults are:
 str = str_crea(),
 num = 1,
 */
-SPAS_LS_LIB inline spans_linespan_t spans_ls_creat(const char *restr file_path);
+SPANS_LS_LIB spans_linespan_t spans_ls_creat(const char *restr file_path);
 
 /*
 This function returns a table of linespan_t, for later
@@ -209,7 +209,13 @@ lexing. Which is supposed to be indexed from `strspan_t`s
 
 The returned value is Nullable, which indicates an error.
 */
-SPAS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path);
+SPANS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path);
+
+/*
+This function frees the `spans_ls_table_t` datatype, if the
+ltv is heap allocated you may free it yourself.
+*/
+SPANS_LS_LIB void spans_ls_table_free(spans_ls_table_t *restr ltv);
 
 /*
 This fetches the string in l, from start, and with length
@@ -217,7 +223,7 @@ len.
 
 This is used to make `strspan_t`s.
 */
-SPAS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t    *restr l,
+SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t    *restr l,
                                       const unsigned long        start_clmn,
                                       const unsigned long        len);
 
@@ -226,13 +232,13 @@ SPANS_LS_STATIC unsigned long spans_power(const unsigned long a, const unsigned 
 SPANS_LS_STATIC unsigned long spans_numlen(const unsigned long i);
 
 /* This returns a heap allocated string, so remember to free it! */
-SPAS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l);
+SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l);
 
 /* Frees the string inside the linespan */
-SPAS_LS_LIB inline void spans_ls_free(spans_linespan_t *restr l);
+SPANS_LS_LIB void spans_ls_free(spans_linespan_t *restr l);
 
 /* Fetches the line span from the table. */
-SPAS_LS_LIB inline spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t *restr lt,
+SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t *restr lt,
                                                           const unsigned long           l_idx);
 
 /*
@@ -251,7 +257,7 @@ SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
                                  const spans_strspan_t *restr s2);
 
 /* Repeats a character n times, for you lazy people. The pointer returned is heap allocated.*/
-SPANS_SS_STATIC inline char* spans_chr_repeat(const char c, const unsigned long n);
+SPANS_SS_STATIC char* spans_chr_repeat(const char c, const unsigned long n);
 
 /* This returns a heap allocated string, so remember to free it! */
 SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
@@ -282,6 +288,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 
 #define ls_creat(file_path)               spans_ls_creat(file_path)
 #define ls_fetch_file(file_path)          spans_ls_fetch_file(file_path)
+#define ls_table_free(ltv)				  spans_ls_table_free(ltv)
 #define ls_fetch_self(l, start_clmn, len) spans_ls_fetch_self(l, start_clmn, len)
 #define power(a, b)                       spans_power(a, b)
 #define numlen(n)                         spans_numlen(n)
@@ -308,7 +315,8 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define STR_T_INIT_SZ 64
 #endif
 
-SPANS_STR_LIB inline spans_str_t spans_str_creat(void) {
+SPANS_STR_LIB spans_str_t spans_str_creat(void)
+{
   char *p = calloc(1, STR_T_INIT_SZ);
   assert(p && "Failed to allocate p in str_creat()");
   return (spans_str_t) {
@@ -423,13 +431,13 @@ SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s)
   return buf;
 }
 
-SPANS_STR_LIB inline void spans_str_free(spans_str_t *restrict s)
+SPANS_STR_LIB void spans_str_free(spans_str_t *restrict s)
 {
   free(s->__s);
   s->__s = NULL;
 }
 
-SPAS_LS_LIB inline spans_linespan_t spans_ls_creat(const char *restr file_path)
+SPANS_LS_LIB spans_linespan_t spans_ls_creat(const char *restr file_path)
 {
   return (spans_linespan_t) {
     .str      = spans_str_creat(),
@@ -439,10 +447,10 @@ SPAS_LS_LIB inline spans_linespan_t spans_ls_creat(const char *restr file_path)
 }
 
 #ifndef LS_TABLE_INITSZ
-#define LS_TABLE_INITSZ 8
+#define LS_TABLE_INITSZ 4
 #endif
 
-SPAS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
+SPANS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
 {
   spans_ls_table_t *lt = calloc(1, sizeof(*lt));
 
@@ -464,7 +472,7 @@ SPAS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
 
   while (cur != EOF)
   {
-    line = spans_str_creat();
+    ls_push.str = spans_str_creat();
     /*
     NOTE: You may fix this in any way you like, since this works,
           I will not touch it as long as my program runs fine.
@@ -474,17 +482,24 @@ SPAS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
     {
       cur = fgetc(f);
       if (cur == EOF || cur == '\n') break;
-      if (spans_str_push_chr(&line, (char) cur) < 0) return NULL;
+      if (spans_str_push_chr(&ls_push.str, (char) cur) < 0)
+      {
+        str_free(&line);
+        return NULL;
+      }
     }
-    ls_push.str = line;
     ls_push.num = lnum;
     lnum++;
 
-    if (lt->len == lt->cap)
+    if ((lt->len + 1) * sizeof(*lt->ptr) >= lt->cap)
     {
-      lt->cap *= 2;
+      while ((lt->len + 1) * sizeof(*lt->ptr) >= lt->cap) lt->cap *= 2;
       lt->ptr  = realloc(lt->ptr, lt->cap);
-      if (!lt->ptr) return NULL;
+      if (!lt->ptr)
+      {
+        str_free(&line);
+        return NULL;
+      }
     }
 
     memcpy(lt->ptr + lt->len, (void*) &ls_push, sizeof(ls_push));
@@ -494,9 +509,19 @@ SPAS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
   return lt;
 }
 
-SPAS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
-                                      const unsigned long           start,
-                                      const unsigned long           len)
+SPANS_LS_LIB void spans_ls_table_free(spans_ls_table_t *restr ltv)
+{
+  for (unsigned long i = 0; i < ltv->len; i++)
+  {
+    linespan_t *l = &ltv->ptr[i];
+    ls_free(l);
+  }
+  free(ltv->ptr);
+}
+
+SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
+                                       const unsigned long           start,
+                                       const unsigned long           len)
 {
   if (l->str.len < start || l->str.len < start + len) return NULL;
 
@@ -529,25 +554,27 @@ SPANS_LS_STATIC unsigned long spans_numlen(const unsigned long i)
   return j;
 }
 
-SPAS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
+SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
 {
   const unsigned int buff_sz = spans_numlen(l->num) + l->str.len + 5;
   char *buff                 = calloc(1, buff_sz);
   if (!buff) return NULL;
 
+  char *str_display = spans_str_display(&l->str);
   snprintf(buff, buff_sz,
            "%lu | %s",
-           l->num, spans_str_display(&l->str));
+           l->num, str_display);
 
+  free(str_display);
   return buff;
 }
 
-SPAS_LS_LIB inline void spans_ls_free(spans_linespan_t *restr l)
+SPANS_LS_LIB void spans_ls_free(spans_linespan_t *restr l)
 {
   spans_str_free(&l->str);
 }
 
-SPAS_LS_LIB inline spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *restr lt,
+SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *restr lt,
                                                           const unsigned long        l_idx)
 {
   if (lt->len <= l_idx) return NULL;
@@ -568,8 +595,8 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
   assert(p && "Failed to fetch string from linespan in ss_init()");
 
   return (spans_strspan_t) {
-    .str = p,
-    .clmn = start,
+    .str      = str_init(p),
+    .clmn     = start,
     .line_idx = l_idx,
   };
 }
@@ -577,40 +604,45 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
 SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
                                  const spans_strspan_t *restr s2)
 {
-  if (!s1 || !s2) return -1;
+  if (!s1 || !s2)                   return -1;
   if (s1->line_idx != s2->line_idx) return -2;
-  if (s1->clmn > s2->clmn) return -3;
+  if (s1->clmn > s2->clmn)          return -3;
 
   spans_str_push_str(&s1->str, s2->str.__s);
 
   return 0;
 }
 
-SPANS_SS_STATIC inline char* spans_chr_repeat(const char c, const unsigned long n)
+SPANS_SS_STATIC char* spans_chr_repeat(const char c, const unsigned long n)
 {
   char *o = calloc(1, n + 1);
   if (!o) return NULL;
   memset(o, (int) c, (size_t) n);
-  return 0;
+  return o;
 }
 
-SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt, const spans_strspan_t *restr s, const char swiggly_chr)
+SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
+                                    const spans_strspan_t  *restr s,
+                                    const char                    swiggly_chr)
 {
   const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
   if (!l) return NULL;
 
-  const unsigned long buf_sz = ((spans_numlen(l->num) + 3) * 2) + l->str.len + s->clmn + s->str.len + 1;
+  const unsigned long buf_sz = ((spans_numlen(l->num) + 5) * 2) + l->str.len + s->clmn + s->str.len + 1;
   char * buf = calloc(1, buf_sz);
+  if (!buf) return NULL;
 
-  char * spaces = spans_chr_repeat(' ', s->clmn);
+  char * spaces  = spans_chr_repeat(' ', s->clmn);
   char * swiggly = spans_chr_repeat(swiggly_chr, s->str.len);
-  if (!spaces || !swiggly) return NULL;
+  if (!spaces && !swiggly) return NULL;
 
+  char *ls_display = spans_ls_display(l);
   snprintf(buf, buf_sz, "%s\n%lu | %s%s",
-           spans_ls_display(l), l->num, spaces, swiggly);
+           ls_display, l->num, spaces, swiggly);
 
-  free(spaces);
+  free(ls_display);
   free(swiggly);
+  free(spaces);
   return buf;
 }
 

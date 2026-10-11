@@ -33,7 +33,7 @@ extern "C" {
 #endif
 */
 
-/* lexer_tokentype_t
+/*
 This enum is based off the qBasic documentation of every valid
 character by their interpreter (I believe).
 
@@ -70,7 +70,7 @@ typedef enum {
   TT_SEMICOLON,
   TT_COLON,
 
-  TT_AND,
+  TT_AMPERSAND,
   TT_QUEST,
   
   TT_L_ANG_BRACK,
@@ -86,7 +86,7 @@ typedef enum {
   TT_ALNUM,
 } lexer_tokentype_t;
 
-/* lexer_lextoken_t
+/*
 The main datatype we're going to work with.
 
 The type declares it's type of token, see "lexer_tokentype_t" for
@@ -100,7 +100,7 @@ typedef struct {
   spans_strspan_t   span;
 } lexer_lextoken_t;
 
-/* lexer_lextok_vec_t
+/*
 This vector is pretty simple. Just a vector implementation for
 our lexer tokens to be stored in.
 */
@@ -118,7 +118,7 @@ typedef enum {
   LEXST_ETC,
 } lexer_lexer_state_t;
 
-/* lexer_ltv_push
+/*
 This function is used to push to the lexer token vector
 (lexer_lextoken_vec_t).
 
@@ -128,7 +128,7 @@ and only view it.
 */
 LEXER_STATIC int lexer_ltv_push(lexer_lextok_vec_t *restr ltv, const lexer_lextoken_t p);
 
-/* lexer_fetch_n_push
+/*
 Thi fetches the token type from lexer_lexer_state_t, and also
 fetches spans_strspan_t from the parameters given. This is repeated
 twice so it is coupled.
@@ -143,7 +143,7 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
                                      const unsigned long              start,
                                      const unsigned long              len);
 
-/* lexer_tokenize_line
+/*
 This function is supposed to be the main tokenizer, so it should
 be the only one in this header.
 
@@ -156,10 +156,22 @@ Remember to free the returned value, as it is heap allocated.
 LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr l,
                                                   const unsigned long           l_idx);
 
+/*
+This frees the datatype `lexer_lextok_vec_t`, which may contain several
+`spans_strspans_t`, so this function will free the string spans for you,
+though it doesn't free the `ltv` parameter given, so if it is heap
+allocated you may free it on the callee, not here.
+*/
+LEXER_LIB void lexer_lextok_vec_free(lexer_lextok_vec_t *restr ltv);
+
 #define tokentype_t   lexer_tokentype_t
 #define lextoken_t    lexer_lextoken_t
 #define lextok_vec_t  lexer_lextok_vec_t
 #define lexer_state_t lexer_lexer_state_t
+
+#define ltv_push(ltv, p)        lexer_ltv_push(ltv, p)
+#define fetch_n_push()
+#define tokenize_line(l, l_idx) lexer_tokenize_line(l, l_idx)
 
 /* --- IMPLEMENTATION --- */
 
@@ -340,7 +352,7 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
       break;
 
     case '&':
-      token_type = TT_AND;
+      token_type = TT_AMPERSAND;
       break;
 
     case '?':
@@ -379,6 +391,14 @@ LEXER_LIB lexer_lextok_vec_t* lexer_tokenize_line(const spans_linespan_t *restr 
   }
 
   return out;
+}
+
+LEXER_LIB void lexer_lextok_vec_free(lexer_lextok_vec_t *restr ltv)
+{
+  for (unsigned long i = 0; i < ltv->len; i++)
+  {
+    // ...
+  }
 }
 
 #endif /* LEXER_IMPL */
