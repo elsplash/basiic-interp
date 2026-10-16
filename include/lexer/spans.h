@@ -5,6 +5,8 @@ Which also includes ways to manipulate and fetch them.
 This file also provides a primitive string datatype,
 which is supposed to abstract the dynamic string
 operations, though I don't recommned using this.
+
+There are also some important macros in here aswell.
 */
 
 #ifndef SPANS_DEF
@@ -18,11 +20,11 @@ extern "C" {
 
 #ifndef restr
 
-#if defined(__STDC_VERSION__ ) && __STDC_VERSION__ >= 199901L
+#if   defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
     #define restr restrict
 #elif defined(_MSC_VER) && _MSC_VER >= 1400
     #define restr __restrict
-#elif defined(__GNUC__) | defined(__clang__)
+#elif defined(__GNUC__) || defined(__clang__)
     #define restr __restrict__
 #else
     #define restr
@@ -45,6 +47,7 @@ This macro expands to make it so it outputs the function correctly.
 #define glob_extern extern
 
 #endif
+
 #endif
 
 /* glob_static
@@ -123,18 +126,29 @@ line span. Which is used for the lexer.
 */
 typedef struct
 {
+  /* NOTE
+  The str element will not be exactly the one in the
+  linespan, since string formatting in the blexer
+  is existent, we need this.
+  */
   spans_str_t   str;
+
+  /*
+  Pretty much needed since the str.len is not a
+  reliable source of the original length.
+   */
+  size_t        len;
   size_t        clmn;
 
   /* NOTE
   This line_idx indicates the index of the line it's
   viewing. Which the linespan_t table is created by
-  a function `fetch_linespan_f(file)`.
+  a function `ls_fetch_file(file)`.
   */
   size_t line_idx;
 } spans_strspan_t;
 
-/* span_t
+/*
 This struct is from strspan_t, which strips the string
 from the strspan_t struct.
 
@@ -193,19 +207,61 @@ of the string capacity, then it will try to realloc to half
 of it's original, ensuring that there is enough space for
 more, after deflation.
 */
-SPANS_STR_LIB int spans_str_pop(spans_str_t *restr s, const size_t sz);
+SPANS_STR_LIB int spans_str_popr(spans_str_t *restr s, const size_t sz);
 
 /*
-This function pushes a character, while also doing some
-bounds checking and expanding if necessary.
+Similar to spans_str_popr, but it pops the left side.
+This still tries to deflate the string, much like the
+right version.
 */
-SPANS_STR_LIB int spans_str_push_chr(spans_str_t *restr s, const char c);
+SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, const size_t sz);
+
+/* This function removes the character at the index given. */
+SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
+                                   const size_t       idx,
+                                   const size_t       sz);
 
 /*
-This pushes a string to the string, and enlarges the string
-capacity if needed.
+This function pushes a character to the right, while
+also doing some bounds checking and expanding if
+necessary.
 */
-SPANS_STR_LIB int spans_str_push_str(spans_str_t *restr s, const char *restr p);
+SPANS_STR_LIB int spans_str_pushr_chr(spans_str_t *restr s, const char c);
+
+/*
+This function pushes a character to the left, much like
+the right version
+*/
+SPANS_STR_LIB int spans_str_pushl_chr(spans_str_t *restr s, const char c);
+
+/*
+This pushes a char pointer from the right of the string,
+and does bounds checking to do so.
+*/
+SPANS_STR_LIB int spans_str_pushr_chrp(spans_str_t *restr s, const char *restr p);
+
+/*
+This pushes a char pointer from the left side, similar to
+the right version of this function.
+*/
+SPANS_STR_LIB int spans_str_pushl_chrp(spans_str_t *restr s, const char *restr p);
+
+/*
+This inserts a character in an index to a string. This
+function also does bounds checks to allocate
+memory if needed.
+*/
+SPANS_STR_LIB int spans_str_insert_chr(spans_str_t *restr s,
+                                       const char         c,
+                                       const size_t       idx);
+
+/*
+This inserts a char pointer data into a string, similar
+to spans_str_insert_chr.
+*/
+SPANS_STR_LIB int spans_str_insert_chrp(spans_str_t *restr s,
+                                        const char  *restr p,
+                                        const size_t       idx);
 
 /*
 This returns a heap allocated char pointer, so remember to
@@ -333,16 +389,19 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define strspan_t  spans_strspan_t
 #define span_t     spans_span_t
 
-#define str_creat()         spans_str_creat()
-#define str_init(s)         spans_str_init(s)
-#define str_equal_chr(s, c) spans_str_equal_chr(s, c)
-#define str_equal_str(a, b) spans_str_equal_str(a, b)
-#define str_reserve(s, sz)  spans_str_reserve(s, sz)
-#define str_pop(s, sz)      spans_str_pop(s, sz)
-#define str_push_chr(s, c)  spans_str_push_chr(s, c)
-#define str_push_str(s, p)  spans_str_push_str(s, p)
-#define str_display(s)      spans_str_display(s)
-#define str_free(s)         spans_str_free(s)
+#define str_creat()          spans_str_creat()
+#define str_init(s)          spans_str_init(s)
+#define str_equal_chr(s, c)  spans_str_equal_chr(s, c)
+#define str_equal_str(a, b)  spans_str_equal_str(a, b)
+#define str_reserve(s, sz)   spans_str_reserve(s, sz)
+#define str_popr(s, sz)      spans_str_popr(s, sz)
+#define str_popl(s, sz)      spans_str_popl(s, sz)
+#define str_pushr_chr(s, c)  spans_str_pushr_chr(s, c)
+#define str_pushl_chr(s, c)  spans_str_pushl_chr(s, c)
+#define str_pushr_chrp(s, p) spans_str_pushr_chrp(s, p)
+#define str_pushl_chrp(s, p) spans_str_pushl_chrp(s, p)
+#define str_display(s)       spans_str_display(s)
+#define str_free(s)          spans_str_free(s)
 
 #define ls_creat(file_path)               spans_ls_creat(file_path)
 #define ls_equal(a, b)					  spans_ls_equal(a, b)
@@ -366,6 +425,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 
 /* --- IMPLEMENTATION --- */
 
+#define SPANS_IMPL
 #ifdef SPANS_IMPL
 #include <stdio.h>
 #include <string.h>
@@ -444,7 +504,7 @@ SPANS_STR_LIB int spans_str_reserve(spans_str_t *restr s, const size_t sz)
   return 0;
 }
 
-SPANS_STR_LIB int str_pop(spans_str_t *restr s, const size_t sz)
+SPANS_STR_LIB int spans_str_popr(spans_str_t *restr s, const size_t sz)
 {
   if (!s) return -1;
 
@@ -457,10 +517,53 @@ SPANS_STR_LIB int str_pop(spans_str_t *restr s, const size_t sz)
     if (!s->__s) return -2;
     return 1;
   }
+
   return 0;
 }
 
-SPANS_STR_LIB int spans_str_push_chr(spans_str_t *restr s, const char c)
+SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, const size_t sz)
+{
+  if (!s) return -1;
+
+  if (s->len < sz) s->len = 0;
+  else             s->len -= sz;
+  for (size_t i = 0; i < s->len - sz; i++)
+    s->__s[i] = s->__s[i + sz];
+
+  if (s->len < s->cap / 4) {
+    s->cap /= 2;
+    s->__s  = realloc(s->__s, s->cap);
+
+    if (!s->__s) return -2;
+    return 1;
+  }
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
+                                   const size_t       idx,
+                                   const size_t       sz) {
+  if (!s) return -1;
+  if (idx + sz >= s->len) return -2;
+
+  for (size_t i = idx; i < s->len - 1; i++)
+    s->__s[i] = s->__s[i + sz];
+
+  s->len -= sz;
+
+  if (s->len < s->cap / 4) {
+    s->cap /= 2;
+    s->__s  = realloc(s->__s, s->cap);
+
+    if (!s->__s) return -2;
+    return 1;
+  }
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_pushr_chr(spans_str_t *restr s, const char c)
 {
   if (!s) return -1;
 
@@ -481,7 +584,31 @@ SPANS_STR_LIB int spans_str_push_chr(spans_str_t *restr s, const char c)
   return 0;
 }
 
-SPANS_STR_LIB int spans_str_push_str(spans_str_t *restr s, const char *restr p)
+SPANS_STR_LIB int spans_str_pushl_chr(spans_str_t *restr s, const char c)
+{
+  if (!s) return -1;
+
+  switch (spans_str_reserve(s, 1))
+  {
+  case -2:
+    return -2;
+  case -1:
+    return -1;
+  case 1:
+    /* Fallthrough */
+  case 0:
+    break;
+  }
+
+  for (size_t i = s->len; i-- > 0;)
+    s->__s[i + 1] = s->__s[i];
+
+  s->__s[0] = c;
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_pushr_chrp(spans_str_t *restr s, const char *restr p)
 {
   if (!s || !p) return -1;
   const int plen = strlen(p);
@@ -498,15 +625,100 @@ SPANS_STR_LIB int spans_str_push_str(spans_str_t *restr s, const char *restr p)
     break;
   }
 
-  strcat(s->__s, p);
+  memcpy(s->__s + s->len, p, plen);
   s->len += plen;
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_pushl_chrp(spans_str_t *restr s, const char *restr p)
+{
+  if (!s || !p) return -1;
+  const int plen = strlen(p);
+
+  switch (spans_str_reserve(s, plen))
+  {
+  case -2:
+    return -2;
+  case -1:
+    return -1;
+  case 1:
+    /* Fallthrough */
+  case 0:
+    break;
+  }
+
+  for (size_t i = 0; i-- > 0;)
+    s->__s[i + plen] = s->__s[i];
+
+  memcpy(s->__s, p, plen);
+
+  s->len += plen;
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_insert_chr(spans_str_t *restr s,
+                                       const char         c,
+                                       const size_t       idx)
+{
+  if (!s)                return -1;
+  if (idx >= s->len)     return -2;
+  if (idx == 0)          return spans_str_pushl_chr(s, c);
+  if (idx == s->len - 1) return spans_str_pushr_chr(s, c);
+
+  switch (spans_str_reserve(s, 1))
+  {
+  case -2:
+    return -2;
+  case -1:
+    return -1;
+  case 1:
+    /* Fallthrough */
+  case 0:
+    break;
+  }
+
+  for (size_t i = s->len; i-- > idx;)
+    s->__s[i + 1] =  s->__s[i];
+  s->__s[idx] = c;
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_insert_chrp(spans_str_t  *restr s,
+                                        const char   *restr p,
+                                        const size_t        idx)
+{
+  if (!s)                return -1;
+  if (idx >= s->len)     return -2;
+  if (idx == 0)          return spans_str_pushl_chrp(s, p);
+  if (idx == s->len - 1) return spans_str_pushr_chrp(s, p);
+
+  const int plen = strlen(p);
+
+  switch (spans_str_reserve(s, plen))
+  {
+  case -2:
+    return -2;
+  case -1:
+    return -1;
+  case 1:
+    /* Fallthrough */
+  case 0:
+    break;
+  }
+
+  for (size_t i = s->len; i-- > idx;)
+    s->__s[i + plen] =  s->__s[i];
+  memcpy(s->__s + idx, p, plen);
 
   return 0;
 }
 
 SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s)
 {
-  char *buf = malloc(s->len + 1);
+  char *buf = calloc(1, s->len + 1);
   snprintf(buf, s->len + 1, "%.*s", (int) s->len, s->__s);
   return buf;
 }
@@ -575,7 +787,7 @@ SPANS_LS_LIB spans_ls_table_t* spans_ls_fetch_file(const char *restr file_path)
     {
       cur = fgetc(f);
       if (cur == EOF || cur == '\n') break;
-      if (spans_str_push_chr(&ls_push.str, (char) cur) < 0)
+      if (spans_str_pushr_chr(&ls_push.str, (char) cur) < 0)
       {
         str_free(&line);
         return NULL;
@@ -677,10 +889,18 @@ SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *r
 }
 
 SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
-                                           const size_t               l_idx,
-                                           const size_t               start,
-                                           const size_t               len)
+                                           const size_t                     l_idx,
+                                           const size_t                     start,
+                                           const size_t                     len)
 {
+  char *display = ls_display(l);
+  printf("%s\n", display);
+  free(display);
+  display = NULL;
+  printf("%s | %s%s\n", spans_chr_repeat(' ', spans_numlen(l->num)), spans_chr_repeat(' ', start), spans_chr_repeat('^', len));
+  printf("l_idx = %zu, start = %zu, len = %zu\n", l_idx, start, len);
+  fflush(stdout);
+
   SPANS_ASSERT(l && "l is NULL in ss_init()");
   SPANS_ASSERT(l->str.len > start && "Starting index is out of l->str's bounds in ss_init()");
   SPANS_ASSERT(l->str.len >= start + len && "Tried fetching more than line contents in ss_init()");
@@ -693,6 +913,7 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
 
   return (spans_strspan_t) {
     .str      = s,
+    .len      = s.len,
     .clmn     = start,
     .line_idx = l_idx,
   };
@@ -726,7 +947,7 @@ SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
   if (s1->line_idx != s2->line_idx) return -2;
   if (s1->clmn > s2->clmn)          return -3;
 
-  spans_str_push_str(&s1->str, s2->str.__s);
+  spans_str_pushr_chrp(&s1->str, s2->str.__s);
 
   return 0;
 }
@@ -746,13 +967,13 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
   const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
   if (!l) return NULL;
 
-  const size_t buf_sz = ((spans_numlen(l->num) + 5) * 2) + l->str.len + s->clmn + s->str.len + 1;
+  const size_t buf_sz = ((spans_numlen(l->num) + 5) * 2) + l->str.len + s->clmn + s->len + 1;
   char * buf          = calloc(1, buf_sz);
   if (!buf) return NULL;
 
   char * spaces1  = spans_chr_repeat(' ', spans_numlen(l->num));
   char * spaces2  = spans_chr_repeat(' ', s->clmn);
-  char * swiggly = spans_chr_repeat(swiggly_chr, s->str.len);
+  char * swiggly = spans_chr_repeat(swiggly_chr, s->len);
   if (!spaces1 && !spaces2 && !swiggly) return NULL;
 
   char *ls_display = spans_ls_display(l);
@@ -773,7 +994,7 @@ SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
   SPANS_ASSERT(l && "l_idx of s is invalid.");
 
   return (spans_span_t) {
-    .len      = s->str.len,
+    .len      = s->len,
     .clmn     = s->clmn,
     .l_idx    = s->line_idx,
     .line_num = l->num,
@@ -784,6 +1005,8 @@ SPANS_SS_LIB void ss_free(spans_strspan_t *restr s)
 {
   spans_str_free(&s->str);
 }
+
+/* TODO: Some spans_t library functions */
 
 #endif /* SPANS_IMPL*/
 

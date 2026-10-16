@@ -48,10 +48,19 @@ typedef enum {
   TT_SPACE,
 
   TT_EQUAL,
+  TT_EQEQ,
+
   TT_PLUS,
+  TT_ADDEQ,
+
   TT_MINUS,
+  TT_SUBEQ,
+
   TT_STAR,
+  TT_MULEQ,
+
   TT_SLASH,
+  TT_DIVEQ,
 
   TT_CARET,
 
@@ -64,16 +73,25 @@ typedef enum {
   TT_EXCL,
 
   TT_L_BRACK,
+  TT_LESSEQ,
+
   TT_R_BRACK,
+  TT_GREATEQ,
+
+  TT_NOT,
 
   TT_COMMA,
   TT_PERIOD,
   TT_SING_QUOT,
-  TT_DOUB_QUOT,
   TT_SEMICOLON,
   TT_COLON,
 
   TT_AMPERSAND,
+  TT_ANDAND,
+
+  TT_BAR,
+  TT_OROR,
+
   TT_QUEST,
 
   TT_L_ANG_BRACK,
@@ -88,6 +106,8 @@ typedef enum {
   TT_NS_ID,
   TT_NS_NUM,
   TT_NS_ALNUM,
+
+  TT_NS_STRING,
 
   /* -- KEYWORD TOKENS -- */
   /* - PROGRAM FLOW - */
@@ -227,26 +247,29 @@ typedef enum {
 
   /* - STRING -*/
   TT_KW_ASC,
-  TT_KW_HEX,
-  TT_KW_OCT,
+  TT_KW_HEXS,
+  TT_KW_OCTS,
+  TT_KW_CHRS,
 
-  TT_KW_INKEY,
+  TT_KW_INKEYS,
   TT_KW_INSTR,
 
-  TT_KW_LCASE,
-  TT_KW_UCASE,
+  TT_KW_LCASES,
+  TT_KW_UCASES,
 
-  TT_KW_LEFT,
-  TT_KW_MID,
-  TT_KW_RIGHT,
+  TT_KW_LEFTS,
+  TT_KW_MIDS,
+  TT_KW_RIGHTS,
 
-  TT_KW_LTRIM,
-  TT_KW_RTRIM,
+  TT_KW_LTRIMS,
+  TT_KW_RTRIMS,
 
-  TT_KW_SPACE,
+  TT_KW_LEN,
 
-  TT_KW_STR,
-  TT_KW_STRING,
+  TT_KW_SPACES,
+
+  TT_KW_STRS,
+  TT_KW_STRINGS,
 
   TT_KW_VAL,
 
@@ -261,6 +284,7 @@ typedef enum {
 
   TT_KW_POINT,
   TT_KW_PEEK,
+  TT_KW_PEEKS, /* String version of the other function I believe? - ESplash (10.16.2026) */
 
   TT_KW_VARPTR,
   TT_KW_VARSEG,
@@ -351,11 +375,11 @@ This is supposed to be a helper function for lexer_tokenize_line,
 so I don't think you'd want this in the library anyway.
 */
 LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
-                                           lexer_lextok_vec_t  *restr out,
-                                     const lexer_lexer_state_t        stat,
-                                     const size_t                     l_idx,
-                                     const size_t                     start,
-                                     const size_t                     len);
+										   lexer_lextok_vec_t  *restr out,
+									 const lexer_lexer_state_t        stat,
+									 const size_t                     l_idx,
+									 const size_t                     start,
+									 const size_t                     len);
 
 /*
 This is a function that frees the lexer token's strspan, for the
@@ -372,6 +396,15 @@ allocated you may free it on the callee, not here.
 LEXER_LIB int lexer_ltvec_free(lexer_lextok_vec_t *restr ltvec);
 
 /*
+This function tokenizes the special logic for strings in qBasic, though
+it has to know where it should start first.
+*/
+LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l,
+												 const size_t                  l_idx,
+												 const size_t                  start,
+													   size_t           *restr len);
+
+/*
 This function is supposed to be the main tokenizer, so it should
 be the only one in this header.
 
@@ -382,7 +415,7 @@ for you to inline yourself.
 Remember to free the returned value, as it is heap allocated.
 */
 LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l,
-                                                  const size_t                  l_idx);
+												 const size_t                  l_idx);
 
 #define tokentype_t   lexer_tokentype_t
 #define lextoken_t    lexer_lextoken_t
@@ -415,9 +448,9 @@ LEXER_STATIC lexer_lextok_vec_t lexer_ltvec_creat(void)
   assert(ptr && "Failed ot allocate in lexer_ltvec_creat()");
 
   return (lexer_lextok_vec_t) {
-    .ltok_ptr = ptr,
-    .len      = 0,
-    .cap      = LEXER_LTVEC_INITSZ
+	.ltok_ptr = ptr,
+	.len      = 0,
+	.cap      = LEXER_LTVEC_INITSZ
   };
 }
 
@@ -426,11 +459,11 @@ LEXER_STATIC int lexer_ltvec_push(lexer_lextok_vec_t *restr ltvec, const lexer_l
   if (!ltvec) return -1;
 
   int rval = 0;
-  if (ltvec->len >= ltvec->cap) {
-    while (ltvec->len >= ltvec->cap)
-      ltvec->cap *= 2;
-    ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
-    rval = 1;
+  if ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap) {
+	  while ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap)
+	    ltvec->cap *= 2;
+	  ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
+	  rval = 1;
   }
 
   ltvec->ltok_ptr[ltvec->len++] = p;
@@ -442,17 +475,17 @@ LEXER_STATIC int lexer_ss_to_lower(spans_strspan_t *restr ss)
   if (!ss) return -1;
   for (size_t i = 0; i < ss->str.len; i++)
   {
-    ss->str.__s[i] = tolower(ss->str.__s[i]);
+	ss->str.__s[i] = tolower(ss->str.__s[i]);
   }
   return 0;
 }
 
 LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
-                                           lexer_lextok_vec_t  *restr out,
-                                     const lexer_lexer_state_t        stat,
-                                     const size_t                     l_idx,
-                                     const size_t                     start,
-                                     const size_t                     len)
+										   lexer_lextok_vec_t  *restr out,
+									 const lexer_lexer_state_t        stat,
+									 const size_t                     l_idx,
+									 const size_t                     start,
+									 const size_t                     len)
 {
   assert(stat != LEXST_ETC && "State is an impossible state (LEXST_ETC in lexer_tokenize_line())");
   strspan_t ss = spans_ss_init(l, l_idx, start, len);
@@ -462,359 +495,364 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
   switch (stat)
   {
   case LEXST_ID:
-    token_type = TT_NS_ID;
-    if (ss_equal_chr(&ss, "run"))
-      token_type = TT_KW_RUN;
-    else if (ss_equal_chr(&ss, "call"))
-      token_type = TT_KW_CALL;
-    else if (ss_equal_chr(&ss, "chain"))
-      token_type = TT_KW_CHAIN;
-    else if (ss_equal_chr(&ss, "return"))
-      token_type = TT_KW_RETURN;
+	token_type = TT_NS_ID;
+	if (ss_equal_chr(&ss, "run"))
+	  token_type = TT_KW_RUN;
+	else if (ss_equal_chr(&ss, "call"))
+	  token_type = TT_KW_CALL;
+	else if (ss_equal_chr(&ss, "chain"))
+	  token_type = TT_KW_CHAIN;
+	else if (ss_equal_chr(&ss, "return"))
+	  token_type = TT_KW_RETURN;
 
-    else if (ss_equal_chr(&ss, "common"))
-      token_type = TT_KW_COMMON;
+	else if (ss_equal_chr(&ss, "common"))
+	  token_type = TT_KW_COMMON;
 
-    else if (ss_equal_chr(&ss, "declare"))
-      token_type = TT_KW_DECLARE;
-    else if (ss_equal_chr(&ss, "def"))
-      token_type = TT_KW_DEF;
+	else if (ss_equal_chr(&ss, "declare"))
+	  token_type = TT_KW_DECLARE;
+	else if (ss_equal_chr(&ss, "def"))
+	  token_type = TT_KW_DEF;
 
-    else if (ss_equal_chr(&ss, "do"))
-      token_type = TT_KW_DO;
-    else if (ss_equal_chr(&ss, "to"))
-      token_type = TT_KW_TO;
-    else if (ss_equal_chr(&ss, "until"))
-      token_type = TT_KW_UNTIL;
+	else if (ss_equal_chr(&ss, "do"))
+	  token_type = TT_KW_DO;
+	else if (ss_equal_chr(&ss, "to"))
+	  token_type = TT_KW_TO;
+	else if (ss_equal_chr(&ss, "until"))
+	  token_type = TT_KW_UNTIL;
 
-    else if (ss_equal_chr(&ss, "if"))
-      token_type = TT_KW_IF;
-    else if (ss_equal_chr(&ss, "else"))
-      token_type = TT_KW_ELSE;
-    else if (ss_equal_chr(&ss, "elseif"))
-      token_type = TT_KW_ELSEIF;
-    else if (ss_equal_chr(&ss, "then"))
-      token_type = TT_KW_THEN;
+	else if (ss_equal_chr(&ss, "if"))
+	  token_type = TT_KW_IF;
+	else if (ss_equal_chr(&ss, "else"))
+	  token_type = TT_KW_ELSE;
+	else if (ss_equal_chr(&ss, "elseif"))
+	  token_type = TT_KW_ELSEIF;
+	else if (ss_equal_chr(&ss, "then"))
+	  token_type = TT_KW_THEN;
 
-    else if (ss_equal_chr(&ss, "case"))
-      token_type = TT_KW_CASE;
+	else if (ss_equal_chr(&ss, "case"))
+	  token_type = TT_KW_CASE;
 
-    else if (ss_equal_chr(&ss, "end"))
-      token_type = TT_KW_END;
-    else if (ss_equal_chr(&ss, "enddef"))
-      token_type = TT_KW_ENDDEF;
+	else if (ss_equal_chr(&ss, "end"))
+	  token_type = TT_KW_END;
+	else if (ss_equal_chr(&ss, "enddef"))
+	  token_type = TT_KW_ENDDEF;
 
-    else if (ss_equal_chr(&ss, "exit"))
-      token_type = TT_KW_EXIT;
+	else if (ss_equal_chr(&ss, "exit"))
+	  token_type = TT_KW_EXIT;
 
-    else if (ss_equal_chr(&ss, "for"))
-      token_type = TT_KW_FOR;
-    else if (ss_equal_chr(&ss, "while"))
-      token_type = TT_KW_WHILE;
-    else if (ss_equal_chr(&ss, "loop"))
-      token_type = TT_KW_LOOP;
+	else if (ss_equal_chr(&ss, "for"))
+	  token_type = TT_KW_FOR;
+	else if (ss_equal_chr(&ss, "while"))
+	  token_type = TT_KW_WHILE;
+	else if (ss_equal_chr(&ss, "loop"))
+	  token_type = TT_KW_LOOP;
 
-    else if (ss_equal_chr(&ss, "next"))
-      token_type = TT_KW_NEXT;
-    else if (ss_equal_chr(&ss, "stop"))
-      token_type = TT_KW_STOP;
+	else if (ss_equal_chr(&ss, "next"))
+	  token_type = TT_KW_NEXT;
+	else if (ss_equal_chr(&ss, "stop"))
+	  token_type = TT_KW_STOP;
 
-    else if (ss_equal_chr(&ss, "gosub"))
-      token_type = TT_KW_GOSUB;
-    else if (ss_equal_chr(&ss, "goto"))
-      token_type = TT_KW_GOTO;
+	else if (ss_equal_chr(&ss, "gosub"))
+	  token_type = TT_KW_GOSUB;
+	else if (ss_equal_chr(&ss, "goto"))
+	  token_type = TT_KW_GOTO;
 
-    else if (ss_equal_chr(&ss, "rem"))
-      token_type = TT_KW_REM;
+	else if (ss_equal_chr(&ss, "rem"))
+	  token_type = TT_KW_REM;
 
-    else if (ss_equal_chr(&ss, "select"))
-      token_type = TT_KW_SELECT;
+	else if (ss_equal_chr(&ss, "select"))
+	  token_type = TT_KW_SELECT;
 
-    else if (ss_equal_chr(&ss, "sub"))
-      token_type = TT_KW_SUB;
-    else if (ss_equal_chr(&ss, "wend"))
-      token_type = TT_KW_WEND;
+	else if (ss_equal_chr(&ss, "sub"))
+	  token_type = TT_KW_SUB;
+	else if (ss_equal_chr(&ss, "wend"))
+	  token_type = TT_KW_WEND;
 
-    else if (ss_equal_chr(&ss, "beep"))
-      token_type = TT_KW_BEEP;
-    else if (ss_equal_chr(&ss, "play"))
-      token_type = TT_KW_PLAY;
-    else if (ss_equal_chr(&ss, "sound"))
-      token_type = TT_KW_SOUND;
+	else if (ss_equal_chr(&ss, "beep"))
+	  token_type = TT_KW_BEEP;
+	else if (ss_equal_chr(&ss, "play"))
+	  token_type = TT_KW_PLAY;
+	else if (ss_equal_chr(&ss, "sound"))
+	  token_type = TT_KW_SOUND;
 
-    else if (ss_equal_chr(&ss, "clear"))
-      token_type = TT_KW_CLEAR;
-    else if (ss_equal_chr(&ss, "cls"))
-      token_type = TT_KW_CLS;
+	else if (ss_equal_chr(&ss, "clear"))
+	  token_type = TT_KW_CLEAR;
+	else if (ss_equal_chr(&ss, "cls"))
+	  token_type = TT_KW_CLS;
 
-    else if (ss_equal_chr(&ss, "close"))
-      token_type = TT_KW_CLOSE;
-    else if (ss_equal_chr(&ss, "open"))
-      token_type = TT_KW_OPEN;
+	else if (ss_equal_chr(&ss, "close"))
+	  token_type = TT_KW_CLOSE;
+	else if (ss_equal_chr(&ss, "open"))
+	  token_type = TT_KW_OPEN;
 
-    else if (ss_equal_chr(&ss, "color"))
-      token_type = TT_KW_COLOR;
-    else if (ss_equal_chr(&ss, "paint"))
-      token_type = TT_KW_PAINT;
-    else if (ss_equal_chr(&ss, "pallete"))
-      token_type = TT_KW_PALLETE;
-    else if (ss_equal_chr(&ss, "pmap"))
-      token_type = TT_KW_PMAP;
-    else if (ss_equal_chr(&ss, "preset"))
-      token_type = TT_KW_PRESET;
-    else if (ss_equal_chr(&ss, "pset"))
-      token_type = TT_KW_PSET;
+	else if (ss_equal_chr(&ss, "color"))
+	  token_type = TT_KW_COLOR;
+	else if (ss_equal_chr(&ss, "paint"))
+	  token_type = TT_KW_PAINT;
+	else if (ss_equal_chr(&ss, "pallete"))
+	  token_type = TT_KW_PALLETE;
+	else if (ss_equal_chr(&ss, "pmap"))
+	  token_type = TT_KW_PMAP;
+	else if (ss_equal_chr(&ss, "preset"))
+	  token_type = TT_KW_PRESET;
+	else if (ss_equal_chr(&ss, "pset"))
+	  token_type = TT_KW_PSET;
 
-    else if (ss_equal_chr(&ss, "draw"))
-      token_type = TT_KW_DRAW;
-    else if (ss_equal_chr(&ss, "line"))
-      token_type = TT_KW_LINE;
+	else if (ss_equal_chr(&ss, "draw"))
+	  token_type = TT_KW_DRAW;
+	else if (ss_equal_chr(&ss, "line"))
+	  token_type = TT_KW_LINE;
 
-    else if (ss_equal_chr(&ss, "screen"))
-      token_type = TT_KW_SCREEN;
-    else if (ss_equal_chr(&ss, "view"))
-      token_type = TT_KW_VIEW;
-    else if (ss_equal_chr(&ss, "window"))
-      token_type = TT_KW_WINDOW;
-    else if (ss_equal_chr(&ss, "width"))
-      token_type = TT_KW_WIDTH;
+	else if (ss_equal_chr(&ss, "screen"))
+	  token_type = TT_KW_SCREEN;
+	else if (ss_equal_chr(&ss, "view"))
+	  token_type = TT_KW_VIEW;
+	else if (ss_equal_chr(&ss, "window"))
+	  token_type = TT_KW_WINDOW;
+	else if (ss_equal_chr(&ss, "width"))
+	  token_type = TT_KW_WIDTH;
 
-    else if (ss_equal_chr(&ss, "com"))
-      token_type = TT_KW_COM;
-    else if (ss_equal_chr(&ss, "data"))
-      token_type = TT_KW_DATA;
-    else if (ss_equal_chr(&ss, "error"))
-      token_type = TT_KW_ERROR;
+	else if (ss_equal_chr(&ss, "com"))
+	  token_type = TT_KW_COM;
+	else if (ss_equal_chr(&ss, "data"))
+	  token_type = TT_KW_DATA;
+	else if (ss_equal_chr(&ss, "error"))
+	  token_type = TT_KW_ERROR;
 
-    else if (ss_equal_chr(&ss, "field"))
-      token_type = TT_KW_FIELD;
-    else if (ss_equal_chr(&ss, "locate"))
-      token_type = TT_KW_LOCATE;
+	else if (ss_equal_chr(&ss, "field"))
+	  token_type = TT_KW_FIELD;
+	else if (ss_equal_chr(&ss, "locate"))
+	  token_type = TT_KW_LOCATE;
 
-    else if (ss_equal_chr(&ss, "get"))
-      token_type = TT_KW_GET;
-    else if (ss_equal_chr(&ss, "input"))
-      token_type = TT_KW_INPUT;
-    else if (ss_equal_chr(&ss, "key"))
-      token_type = TT_KW_KEY;
+	else if (ss_equal_chr(&ss, "get"))
+	  token_type = TT_KW_GET;
+	else if (ss_equal_chr(&ss, "input"))
+	  token_type = TT_KW_INPUT;
+	else if (ss_equal_chr(&ss, "key"))
+	  token_type = TT_KW_KEY;
 
-    else if (ss_equal_chr(&ss, "lprint"))
-      token_type = TT_KW_LPRINT;
+	else if (ss_equal_chr(&ss, "lprint"))
+	  token_type = TT_KW_LPRINT;
 
-    else if (ss_equal_chr(&ss, "out"))
-      token_type = TT_KW_OUT;
+	else if (ss_equal_chr(&ss, "out"))
+	  token_type = TT_KW_OUT;
 
-    else if (ss_equal_chr(&ss, "print"))
-      token_type = TT_KW_PRINT;
-    else if (ss_equal_chr(&ss, "put"))
-      token_type = TT_KW_PUT;
+	else if (ss_equal_chr(&ss, "print"))
+	  token_type = TT_KW_PRINT;
+	else if (ss_equal_chr(&ss, "put"))
+	  token_type = TT_KW_PUT;
 
-    else if (ss_equal_chr(&ss, "randomize"))
-      token_type = TT_KW_RANDOMIZE;
+	else if (ss_equal_chr(&ss, "randomize"))
+	  token_type = TT_KW_RANDOMIZE;
 
-    else if (ss_equal_chr(&ss, "read"))
-      token_type = TT_KW_READ;
-    else if (ss_equal_chr(&ss, "write"))
-      token_type = TT_KW_WRITE;
+	else if (ss_equal_chr(&ss, "read"))
+	  token_type = TT_KW_READ;
+	else if (ss_equal_chr(&ss, "write"))
+	  token_type = TT_KW_WRITE;
 
-    else if (ss_equal_chr(&ss, "restore"))
-      token_type = TT_KW_RESTORE;
+	else if (ss_equal_chr(&ss, "restore"))
+	  token_type = TT_KW_RESTORE;
 
-    else if (ss_equal_chr(&ss, "sleep"))
-      token_type = TT_KW_SLEEP;
+	else if (ss_equal_chr(&ss, "sleep"))
+	  token_type = TT_KW_SLEEP;
 
-    else if (ss_equal_chr(&ss, "as"))
-      token_type = TT_KW_AS;
-    else if (ss_equal_chr(&ss, "const"))
-      token_type = TT_KW_CONST;
-    else if (ss_equal_chr(&ss, "static"))
-      token_type = TT_KW_STATIC;
-    else if (ss_equal_chr(&ss, "shared"))
-      token_type = TT_KW_SHARED;
+	else if (ss_equal_chr(&ss, "as"))
+	  token_type = TT_KW_AS;
+	else if (ss_equal_chr(&ss, "const"))
+	  token_type = TT_KW_CONST;
+	else if (ss_equal_chr(&ss, "static"))
+	  token_type = TT_KW_STATIC;
+	else if (ss_equal_chr(&ss, "shared"))
+	  token_type = TT_KW_SHARED;
 
-    else if (ss_equal_chr(&ss, "erase"))
-      token_type = TT_KW_ERASE;
+	else if (ss_equal_chr(&ss, "erase"))
+	  token_type = TT_KW_ERASE;
 
-    else if (ss_equal_chr(&ss, "dim"))
-      token_type = TT_KW_DIM;
-    else if (ss_equal_chr(&ss, "redim"))
-      token_type = TT_KW_REDIM;
+	else if (ss_equal_chr(&ss, "dim"))
+	  token_type = TT_KW_DIM;
+	else if (ss_equal_chr(&ss, "redim"))
+	  token_type = TT_KW_REDIM;
 
-    else if (ss_equal_chr(&ss, "type"))
-      token_type = TT_KW_TYPE;
+	else if (ss_equal_chr(&ss, "type"))
+	  token_type = TT_KW_TYPE;
 
-    else if (ss_equal_chr(&ss, "defdbl"))
-      token_type = TT_KW_DEFDBL;
-    else if (ss_equal_chr(&ss, "defint"))
-      token_type = TT_KW_DEFINT;
-    else if (ss_equal_chr(&ss, "deflng"))
-      token_type = TT_KW_DEFLNG;
-    else if (ss_equal_chr(&ss, "defsng"))
-      token_type = TT_KW_DEFSNG;
-    else if (ss_equal_chr(&ss, "defstr"))
-      token_type = TT_KW_DEFSTR;
+	else if (ss_equal_chr(&ss, "defdbl"))
+	  token_type = TT_KW_DEFDBL;
+	else if (ss_equal_chr(&ss, "defint"))
+	  token_type = TT_KW_DEFINT;
+	else if (ss_equal_chr(&ss, "deflng"))
+	  token_type = TT_KW_DEFLNG;
+	else if (ss_equal_chr(&ss, "defsng"))
+	  token_type = TT_KW_DEFSNG;
+	else if (ss_equal_chr(&ss, "defstr"))
+	  token_type = TT_KW_DEFSTR;
 
-    else if (ss_equal_chr(&ss, "cdbl"))
-      token_type = TT_KW_CDBL;
-    else if (ss_equal_chr(&ss, "cint"))
-      token_type = TT_KW_CINT;
-    else if (ss_equal_chr(&ss, "clng"))
-      token_type = TT_KW_CLNG;
-    else if (ss_equal_chr(&ss, "cos"))
-      token_type = TT_KW_COS;
-    else if (ss_equal_chr(&ss, "csng"))
-      token_type = TT_KW_CSNG;
-    else if (ss_equal_chr(&ss, "csrlin"))
-      token_type = TT_KW_CSRLIN;
+	else if (ss_equal_chr(&ss, "cdbl"))
+	  token_type = TT_KW_CDBL;
+	else if (ss_equal_chr(&ss, "cint"))
+	  token_type = TT_KW_CINT;
+	else if (ss_equal_chr(&ss, "clng"))
+	  token_type = TT_KW_CLNG;
+	else if (ss_equal_chr(&ss, "cos"))
+	  token_type = TT_KW_COS;
+	else if (ss_equal_chr(&ss, "csng"))
+	  token_type = TT_KW_CSNG;
+	else if (ss_equal_chr(&ss, "csrlin"))
+	  token_type = TT_KW_CSRLIN;
 
-    else if (ss_equal_chr(&ss, "abs"))
-      token_type = TT_KW_ABS;
-    else if (ss_equal_chr(&ss, "atn"))
-      token_type = TT_KW_ATN;
-    else if (ss_equal_chr(&ss, "exp"))
-      token_type = TT_KW_EXP;
-    else if (ss_equal_chr(&ss, "fix"))
-      token_type = TT_KW_FIX;
-    else if (ss_equal_chr(&ss, "int"))
-      token_type = TT_KW_INT;
-    else if (ss_equal_chr(&ss, "log"))
-      token_type = TT_KW_LOG;
-    else if (ss_equal_chr(&ss, "sgn"))
-      token_type = TT_KW_SGN;
-    else if (ss_equal_chr(&ss, "sin"))
-      token_type = TT_KW_SIN;
-    else if (ss_equal_chr(&ss, "sqr"))
-      token_type = TT_KW_SQR;
-    else if (ss_equal_chr(&ss, "tan"))
-      token_type = TT_KW_TAN;
+	else if (ss_equal_chr(&ss, "abs"))
+	  token_type = TT_KW_ABS;
+	else if (ss_equal_chr(&ss, "atn"))
+	  token_type = TT_KW_ATN;
+	else if (ss_equal_chr(&ss, "exp"))
+	  token_type = TT_KW_EXP;
+	else if (ss_equal_chr(&ss, "fix"))
+	  token_type = TT_KW_FIX;
+	else if (ss_equal_chr(&ss, "int"))
+	  token_type = TT_KW_INT;
+	else if (ss_equal_chr(&ss, "log"))
+	  token_type = TT_KW_LOG;
+	else if (ss_equal_chr(&ss, "sgn"))
+	  token_type = TT_KW_SGN;
+	else if (ss_equal_chr(&ss, "sin"))
+	  token_type = TT_KW_SIN;
+	else if (ss_equal_chr(&ss, "sqr"))
+	  token_type = TT_KW_SQR;
+	else if (ss_equal_chr(&ss, "tan"))
+	  token_type = TT_KW_TAN;
 
-    else if (ss_equal_chr(&ss, "asc"))
-      token_type = TT_KW_ASC;
-    else if (ss_equal_chr(&ss, "hex"))
-      token_type = TT_KW_HEX;
-    else if (ss_equal_chr(&ss, "oct"))
-      token_type = TT_KW_OCT;
+	else if (ss_equal_chr(&ss, "asc"))
+	  token_type = TT_KW_ASC;
+	else if (ss_equal_chr(&ss, "hex$"))
+	  token_type = TT_KW_HEXS;
+	else if (ss_equal_chr(&ss, "oct$"))
+	  token_type = TT_KW_OCTS;
 
-    else if (ss_equal_chr(&ss, "inkey"))
-      token_type = TT_KW_INKEY;
-    else if (ss_equal_chr(&ss, "instr"))
-      token_type = TT_KW_INSTR;
+	else if (ss_equal_chr(&ss, "inkey$"))
+	  token_type = TT_KW_INKEYS;
+	else if (ss_equal_chr(&ss, "instr"))
+	  token_type = TT_KW_INSTR;
 
-    else if (ss_equal_chr(&ss, "lcase"))
-      token_type = TT_KW_LCASE;
-    else if (ss_equal_chr(&ss, "ucase"))
-      token_type = TT_KW_UCASE;
+	else if (ss_equal_chr(&ss, "lcase$"))
+	  token_type = TT_KW_LCASES;
+	else if (ss_equal_chr(&ss, "ucase$"))
+	  token_type = TT_KW_UCASES;
 
-    else if (ss_equal_chr(&ss, "left"))
-      token_type = TT_KW_LEFT;
-    else if (ss_equal_chr(&ss, "mid"))
-      token_type = TT_KW_MID;
-    else if (ss_equal_chr(&ss, "right"))
-      token_type = TT_KW_RIGHT;
+	else if (ss_equal_chr(&ss, "left$"))
+	  token_type = TT_KW_LEFTS;
+	else if (ss_equal_chr(&ss, "mid$"))
+	  token_type = TT_KW_MIDS;
+	else if (ss_equal_chr(&ss, "right$"))
+	  token_type = TT_KW_RIGHTS;
 
-    else if (ss_equal_chr(&ss, "ltrim"))
-      token_type = TT_KW_LTRIM;
-    else if (ss_equal_chr(&ss, "rtrim"))
-      token_type = TT_KW_RTRIM;
+	else if (ss_equal_chr(&ss, "ltrim$"))
+	  token_type = TT_KW_LTRIMS;
+	else if (ss_equal_chr(&ss, "rtrim$"))
+	  token_type = TT_KW_RTRIMS;
 
-    else if (ss_equal_chr(&ss, "space"))
-      token_type = TT_KW_SPACE;
+	else if (ss_equal_chr(&ss, "len"))
+	  token_type = TT_KW_LEN;
 
-    else if (ss_equal_chr(&ss, "str"))
-      token_type = TT_KW_STR;
-    else if (ss_equal_chr(&ss, "string"))
-      token_type = TT_KW_STRING;
+	else if (ss_equal_chr(&ss, "space$"))
+	  token_type = TT_KW_SPACES;
 
-    else if (ss_equal_chr(&ss, "val"))
-      token_type = TT_KW_VAL;
+	else if (ss_equal_chr(&ss, "str$"))
+	  token_type = TT_KW_STRS;
+	else if (ss_equal_chr(&ss, "string$"))
+	  token_type = TT_KW_STRINGS;
 
-    else if (ss_equal_chr(&ss, "eof"))
-      token_type = TT_KW_EOF;
-    else if (ss_equal_chr(&ss, "erl"))
-      token_type = TT_KW_ERL;
-    else if (ss_equal_chr(&ss, "err"))
-      token_type = TT_KW_ERR;
-    else if (ss_equal_chr(&ss, "fre"))
-      token_type = TT_KW_FRE;
-    else if (ss_equal_chr(&ss, "inp"))
-      token_type = TT_KW_INP;
-    else if (ss_equal_chr(&ss, "lof"))
-      token_type = TT_KW_LOF;
-    else if (ss_equal_chr(&ss, "pos"))
-      token_type = TT_KW_POS;
+	else if (ss_equal_chr(&ss, "val"))
+	  token_type = TT_KW_VAL;
 
-    else if (ss_equal_chr(&ss, "point"))
-      token_type = TT_KW_POINT;
-    else if (ss_equal_chr(&ss, "peek"))
-      token_type = TT_KW_PEEK;
+	else if (ss_equal_chr(&ss, "eof"))
+	  token_type = TT_KW_EOF;
+	else if (ss_equal_chr(&ss, "erl"))
+	  token_type = TT_KW_ERL;
+	else if (ss_equal_chr(&ss, "err"))
+	  token_type = TT_KW_ERR;
+	else if (ss_equal_chr(&ss, "fre"))
+	  token_type = TT_KW_FRE;
+	else if (ss_equal_chr(&ss, "inp"))
+	  token_type = TT_KW_INP;
+	else if (ss_equal_chr(&ss, "lof"))
+	  token_type = TT_KW_LOF;
+	else if (ss_equal_chr(&ss, "pos"))
+	  token_type = TT_KW_POS;
 
-    else if (ss_equal_chr(&ss, "varptr"))
-      token_type = TT_KW_VARPTR;
-    else if (ss_equal_chr(&ss, "varseg"))
-      token_type = TT_KW_VARSEG;
+	else if (ss_equal_chr(&ss, "point"))
+	  token_type = TT_KW_POINT;
+	else if (ss_equal_chr(&ss, "peek"))
+	  token_type = TT_KW_PEEK;
+	else if (ss_equal_chr(&ss, "peek$"))
+	  token_type = TT_KW_PEEKS;
 
-    else if (ss_equal_chr(&ss, "time"))
-      token_type = TT_KW_TIME;
-    else if (ss_equal_chr(&ss, "date"))
-      token_type = TT_KW_DATE;
+	else if (ss_equal_chr(&ss, "varptr"))
+	  token_type = TT_KW_VARPTR;
+	else if (ss_equal_chr(&ss, "varseg"))
+	  token_type = TT_KW_VARSEG;
 
-    else if (ss_equal_chr(&ss, "and"))
-      token_type = TT_KW_AND;
-    else if (ss_equal_chr(&ss, "eqv"))
-      token_type = TT_KW_EQV;
-    else if (ss_equal_chr(&ss, "imp"))
-      token_type = TT_KW_IMP;
-    else if (ss_equal_chr(&ss, "mod"))
-      token_type = TT_KW_MOD;
-    else if (ss_equal_chr(&ss, "not"))
-      token_type = TT_KW_NOT;
-    else if (ss_equal_chr(&ss, "or"))
-      token_type = TT_KW_OR;
-    else if (ss_equal_chr(&ss, "xor"))
-      token_type = TT_KW_XOR;
+	else if (ss_equal_chr(&ss, "time"))
+	  token_type = TT_KW_TIME;
+	else if (ss_equal_chr(&ss, "date"))
+	  token_type = TT_KW_DATE;
 
-    else if (ss_equal_chr(&ss, "circle"))
-      token_type = TT_KW_CIRCLE;
+	else if (ss_equal_chr(&ss, "and"))
+	  token_type = TT_KW_AND;
+	else if (ss_equal_chr(&ss, "eqv"))
+	  token_type = TT_KW_EQV;
+	else if (ss_equal_chr(&ss, "imp"))
+	  token_type = TT_KW_IMP;
+	else if (ss_equal_chr(&ss, "mod"))
+	  token_type = TT_KW_MOD;
+	else if (ss_equal_chr(&ss, "not"))
+	  token_type = TT_KW_NOT;
+	else if (ss_equal_chr(&ss, "or"))
+	  token_type = TT_KW_OR;
+	else if (ss_equal_chr(&ss, "xor"))
+	  token_type = TT_KW_XOR;
 
-    else if (ss_equal_chr(&ss, "chdir"))
-      token_type = TT_KW_CHDIR;
-    else if (ss_equal_chr(&ss, "mkdir"))
-      token_type = TT_KW_MKDIR;
-    else if (ss_equal_chr(&ss, "rmdir"))
-      token_type = TT_KW_RMDIR;
+	else if (ss_equal_chr(&ss, "circle"))
+	  token_type = TT_KW_CIRCLE;
 
-    else if (ss_equal_chr(&ss, "files"))
-      token_type = TT_KW_FILES;
-    else if (ss_equal_chr(&ss, "name"))
-      token_type = TT_KW_NAME;
+	else if (ss_equal_chr(&ss, "chdir"))
+	  token_type = TT_KW_CHDIR;
+	else if (ss_equal_chr(&ss, "mkdir"))
+	  token_type = TT_KW_MKDIR;
+	else if (ss_equal_chr(&ss, "rmdir"))
+	  token_type = TT_KW_RMDIR;
 
-    else if (ss_equal_chr(&ss, "kill"))
-      token_type = TT_KW_KILL;
+	else if (ss_equal_chr(&ss, "files"))
+	  token_type = TT_KW_FILES;
+	else if (ss_equal_chr(&ss, "name"))
+	  token_type = TT_KW_NAME;
 
-    else if (ss_equal_chr(&ss, "shell"))
-      token_type = TT_KW_SHELL;
+	else if (ss_equal_chr(&ss, "kill"))
+	  token_type = TT_KW_KILL;
 
-    break;
+	else if (ss_equal_chr(&ss, "shell"))
+	  token_type = TT_KW_SHELL;
+
+	break;
 
   case LEXST_NUM:
-    token_type = TT_NS_NUM;
-    break;
+	token_type = TT_NS_NUM;
+	break;
 
   case LEXST_ALNUM:
-    token_type = TT_NS_ALNUM;
-    break;
+	token_type = TT_NS_ALNUM;
+	break;
 
   case LEXST_SPACE:
-    token_type = TT_SPACE;
-    break;
+	token_type = TT_SPACE;
+	break;
 
   default:
-    break;
+	break;
   }
 
   const lexer_lextoken_t ltok = (lexer_lextoken_t) {
-    .type = token_type,
-    .span = ss,
+	.type = token_type,
+	.span = ss,
   };
   lexer_ltvec_push(out, ltok);
 }
@@ -822,7 +860,7 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
 LEXER_LIB int lexer_ltok_free(lexer_lextoken_t *restr ltok)
 {
   if (!ltok)
-    return -1;
+	return -1;
 
   spans_ss_free(&ltok->span);
 
@@ -835,226 +873,361 @@ LEXER_LIB int lexer_ltvec_free(lexer_lextok_vec_t *restr ltvec)
   int rval = 0;
   for (size_t i = 0; i < ltvec->len; i++)
   {
-    if (lexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) rval++;
+	if (lexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) rval++;
   }
   free(ltvec->ltok_ptr);
   return 0;
 }
 
-LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l,
-                                                 const size_t                  l_idx)
+LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l,
+												 const size_t                  l_idx,
+												 const size_t                  start,
+													   size_t           *restr len) /* This is to keep track of where the string ended. */
 {
+  assert(l && "Passed l parameter is NULL");
+  assert(len && "Passed len parameter is NULL");
+  assert(*len == 0 && "Passed len parameter is invalid");
+
+  /*
+  Manual iteration is required.
+  We assume the linespan starts at a quotation mark,
+  like `"Hello World!"`, so we can skip it gladly.
+
+  If no quotation mark is found we need to end at the
+  end of the line, hence lenght needs to be subtracted
+  by one.
+  */
+  while ((*len)++ < l->str.len - 1)
+  {
+    if (l->str.__s[*len + start] == '"')
+    {
+      if (*len != l->str.len - 1 && l->str.__s[++(*len) + start] == '"')
+      {
+        continue;
+      }
+      break;
+    }
+  }
+
+  lexer_lextoken_t out = (lexer_lextoken_t) {
+	.type = TT_NS_STRING,
+	.span = spans_ss_init(l, l_idx, start, *len),
+  };
+
+  /*- Format out.span for future parsing -*/
+
+  /* Trim out the double quotation marks */
+
+  if (out.span.str.__s[out.span.str.len - 1] == '"')
+    spans_str_popr(&out.span.str, 1); /* Since it's possible that the right quote can be missing. */
+  spans_str_popl(&out.span.str, 1);
+
+  /* Format the quotation mark escape sequences */
+  size_t i = 0;
+  while (i < out.span.str.len)
+  {
+    if (out.span.str.__s[i] == '"')
+	  spans_str_pop_at(&out.span.str, i, 1);
+	i++;
+  }
+
+  return out;
+}
+
+LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l,
+												 const size_t                  l_idx)
+{
+  assert(l && "Passed l parameter is NULL");
+
   lexer_lextok_vec_t   out   = lexer_ltvec_creat();
   lexer_lexer_state_t  stat  = LEXST_ETC;
   long                 start = -1;
   size_t               len   = 0;
 
-  for (size_t i = 0; i < l->str.len; i++)
+  size_t i = 0;
+  while (i < l->str.len)
   {
-    const char c = l->str.__s[i];
+	const char c = l->str.__s[i];
 
-    if (start == -1) start = i;
-    len++;
+	if (start == -1) start = i;
+	len++;
 
-    if (isalpha(c))
-    {
-      switch (stat)
+	if (isalpha(c))
+	{
+	  switch (stat)
+	  {
+	  case LEXST_NUM:
+		stat = LEXST_ALNUM;
+		/* Fallthrough*/
+	  case LEXST_ALNUM:
+		/* Fallthrough */
+	  case LEXST_ID:
+		break;
+
+	  case LEXST_SPACE:
+		lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
+		len   = 1;
+		start = i;
+		/* Fallthrough*/
+	  case LEXST_ETC:
+		stat  = LEXST_ID;
+		break;
+
+	  default:
+		assert(0 && "Invalid state in lexer_tokenize_line() (1)");
+	  }
+	  i++;
+	  continue;
+	} else if (isdigit(c))
+	{
+	  switch (stat)
+	  {
+	  case LEXST_ID:
+		stat = LEXST_ALNUM;
+		/* Fallthrough */
+	  case LEXST_ALNUM:
+		/* Fallthrough */
+	  case LEXST_NUM:
+		break;
+
+	  case LEXST_SPACE:
+		lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
+		len   = 1;
+		start = i;
+		/* Fallthrough */
+	  case LEXST_ETC:
+		stat = LEXST_NUM;
+		break;
+
+	  default:
+		assert(0 && "Invalid state in lexer-tokenize_line() (2)");
+	  }
+	  i++;
+	  continue;
+	} else if (c == ' ' && stat == LEXST_SPACE) {
+	  i++;
+	  continue;
+	}
+
+	if (len > 1)
+	{
+	  lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+	  len   = 1;
+	  start = i;
+	} else if (c == '\n')
+	{
+	  if (len - 1 != 0) lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+	  len   = 1;
+	  start = i;
+	  const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
+	  lexer_ltvec_push(&out, (lexer_lextoken_t) {
+		.span = ss,
+		.type = TT_NEWLINE,
+	  });
+	  break;
+	}
+
+	lexer_tokentype_t token_type = TT_NS_ID;
+	switch (c)
+	{
+	case ' ':
+	  stat = LEXST_SPACE;
+	  i++;
+	  continue;
+
+	case '=':
+	  token_type = TT_EQUAL;
+      if (l->str.__s[i + 1] == '=')
       {
-      case LEXST_NUM:
-        stat = LEXST_ALNUM;
-        /* Fallthrough*/
-      case LEXST_ALNUM:
-        /* Fallthrough */
-      case LEXST_ID:
-        break;
-
-      case LEXST_SPACE:
-        lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
-        len   = 1;
-        start = i;
-        /* Fallthrough*/
-      case LEXST_ETC:
-        stat  = LEXST_ID;
-        break;
-
-      default:
-        assert(0 && "Invalid state in lexer_tokenize_line() (1)");
+        len++;
+        i++;
+        token_type = TT_EQEQ;
       }
-      continue;
-    } else if (isdigit(c))
-    {
-      switch (stat)
+	  break;
+
+	case '+':
+	  token_type = TT_PLUS;
+      if (l->str.__s[i + 1] == '=')
       {
-      case LEXST_ID:
-        stat = LEXST_ALNUM;
-        /* Fallthrough */
-      case LEXST_ALNUM:
-        /* Fallthrough */
-      case LEXST_NUM:
-        break;
-
-      case LEXST_SPACE:
-        lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
-        len   = 1;
-        start = i;
-        /* Fallthrough */
-      case LEXST_ETC:
-        stat = LEXST_NUM;
-        break;
-
-      default:
-        assert(0 && "Invalid state in lexer-tokenize_line() (2)");
+		len++;
+        i++;
+		token_type = TT_ADDEQ;
       }
-      continue;
-    } else if (c == ' ' && stat == LEXST_SPACE) continue;
+	  break;
 
-    if (len > 1)
-    {
-      lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
-      len   = 0;
-      start = i;
-    } else if (c == '\n')
-    {
-      if (len - 1 != 0) lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
-      len   = 1;
-      start = i;
-      const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
-      lexer_ltvec_push(&out, (lexer_lextoken_t) {
-        .span = ss,
-        .type = TT_NEWLINE,
-      });
-      break;
-    }
+	case '-':
+	  token_type = TT_MINUS;
+      if (l->str.__s[i + 1] == '=')
+      {
+		len++;
+        i++;
+		token_type = TT_SUBEQ;
+      }
+	  break;
 
-    lexer_tokentype_t token_type = TT_NS_ID;
-    switch (c)
-    {
-    case ' ':
-      stat = LEXST_SPACE;
-      continue;
+	case '*':
+	  token_type = TT_STAR;
+      if (l->str.__s[i + 1] == '=')
+      {
+		len++;
+        i++;
+		token_type = TT_MULEQ;
+      }
+	  break;
 
-    case '=':
-      token_type = TT_EQUAL;
-      break;
+	case '/':
+	  token_type = TT_SLASH;
+      if (l->str.__s[i + 1] == '=')
+      {
+		len++;
+        i++;
+		token_type = TT_DIVEQ;
+      }
+	  break;
 
-    case '+':
-      token_type = TT_PLUS;
-      break;
+	case '^':
+	  token_type = TT_CARET;
+	  break;
 
-    case '-':
-      token_type = TT_MINUS;
-      break;
+	case '(':
+	  token_type = TT_L_PAREN;
+	  break;
 
-    case '*':
-      token_type = TT_STAR;
-      break;
+	case ')':
+	  token_type = TT_R_PAREN;
+	  break;
 
-    case '/':
-      token_type = TT_SLASH;
-      break;
+	case '%':
+	  token_type = TT_PERCENT;
+	  break;
 
-    case '^':
-      token_type = TT_CARET;
-      break;
+	case '#':
+	  token_type = TT_POUND;
+	  break;
 
-    case '(':
-      token_type = TT_L_PAREN;
-      break;
+	case '$':
+	  token_type = TT_DOLLAR;
+	  break;
 
-    case ')':
-      token_type = TT_R_PAREN;
-      break;
+	case '!':
+	  token_type = TT_EXCL;
+	  break;
 
-    case '%':
-      token_type = TT_PERCENT;
-      break;
+	case '[':
+	  token_type = TT_L_BRACK;
+	  break;
 
-    case '#':
-      token_type = TT_POUND;
-      break;
+	case ']':
+	  token_type = TT_R_BRACK;
+	  break;
 
-    case '$':
-      token_type = TT_DOLLAR;
-      break;
+	case ',':
+	  token_type = TT_COMMA;
+	  break;
 
-    case '!':
-      token_type = TT_EXCL;
-      break;
+	case '.':
+	  token_type = TT_PERIOD;
+	  break;
 
-    case '[':
-      token_type = TT_L_BRACK;
-      break;
-
-    case ']':
-      token_type = TT_R_BRACK;
-      break;
-
-    case ',':
-      token_type = TT_COMMA;
-      break;
-
-    case '.':
-      token_type = TT_PERIOD;
-      break;
-
-    case '\'':
-      token_type = TT_SING_QUOT;
-      break;
+	case '\'':
+	  token_type = TT_SING_QUOT;
+	  break;
 
     case '"':
-      token_type = TT_DOUB_QUOT;
+      {
+		size_t string_len = 0;
+        lexer_lextoken_t ltok = lexer_tokenize_string(l, l_idx, i, &string_len);
+		lexer_ltvec_push(&out, ltok);
+        i += string_len;
+	  }
+      start = -1;
+      len   = 0;
+	  continue;
+
+	case ';':
+	  token_type = TT_SEMICOLON;
+	  break;
+
+	case ':':
+	  token_type = TT_COLON;
+	  break;
+
+	case '&':
+	  token_type = TT_AMPERSAND;
+      if (l->str.__s[i + 1] == '&')
+      {
+		len++;
+        i++;
+		token_type = TT_ANDAND;
+      }
+	  break;
+
+    case '|':
+      token_type = TT_BAR;
+      if (l->str.__s[i + 1] == '|')
+      {
+		len++;
+        i++;
+		token_type = TT_OROR;
+      }
       break;
 
-    case ';':
-      token_type = TT_SEMICOLON;
-      break;
+	case '?':
+	  token_type = TT_QUEST;
+	  break;
 
-    case ':':
-      token_type = TT_COLON;
-      break;
+	case '<':
+	  token_type = TT_L_ANG_BRACK;
+      if (l->str.__s[i + 1] == '=')
+      {
+		len++;
+        i++;
+		token_type = TT_LESSEQ;
+      } else if (l->str.__s[i + 1] == '>')
+      {
+		len++;
+        i++;
+		token_type = TT_NOT;
+      }
+	  break;
 
-    case '&':
-      token_type = TT_AMPERSAND;
-      break;
+	case '>':
+	  token_type = TT_R_ANG_BRACK;
+      if (l->str.__s[i + 1] == '=')
+      {
+		len++;
+        i++;
+		token_type = TT_GREATEQ;
+      }
+	  break;
 
-    case '?':
-      token_type = TT_QUEST;
-      break;
+	case '\\':
+	  token_type = TT_BACKSLASH;
+	  break;
 
-    case '<':
-      token_type = TT_L_ANG_BRACK;
-      break;
+	case '@':
+	  token_type = TT_AT;
+	  break;
 
-    case '>':
-      token_type = TT_R_ANG_BRACK;
-      break;
+	case '_':
+	  token_type = TT_UNDER;
+	  break;
 
-    case '\\':
-      token_type = TT_BACKSLASH;
-      break;
+	default:
+	  /* NOTE: We are implicitly making this an identifier. */
+	  break;
+	}
+	const strspan_t ss = spans_ss_init(l, l_idx, start, len);
+	const lexer_lextoken_t ltok = (lexer_lextoken_t) {
+	  .span = ss,
+	  .type = token_type,
+	};
 
-    case '@':
-      token_type = TT_AT;
-      break;
+	lexer_ltvec_push(&out, ltok);
 
-    case '_':
-      token_type = TT_UNDER;
-      break;
-
-    default:
-      /* NOTE: We are implicitly making this an identifier. */
-      break;
-    }
-    const strspan_t ss = spans_ss_init(l, l_idx, start, len);
-    const lexer_lextoken_t ltok = (lexer_lextoken_t) {
-      .span = ss,
-      .type = token_type,
-    };
-
-    lexer_ltvec_push(&out, ltok);
-
-    start = -1;
-    len   =  0;
+	start = -1;
+	len   =  0;
+	i++;
   }
 
   if (len > 0) lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
