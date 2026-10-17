@@ -893,14 +893,6 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
                                            const size_t                     start,
                                            const size_t                     len)
 {
-  char *display = ls_display(l);
-  printf("%s\n", display);
-  free(display);
-  display = NULL;
-  printf("%s | %s%s\n", spans_chr_repeat(' ', spans_numlen(l->num)), spans_chr_repeat(' ', start), spans_chr_repeat('^', len));
-  printf("l_idx = %zu, start = %zu, len = %zu\n", l_idx, start, len);
-  fflush(stdout);
-
   SPANS_ASSERT(l && "l is NULL in ss_init()");
   SPANS_ASSERT(l->str.len > start && "Starting index is out of l->str's bounds in ss_init()");
   SPANS_ASSERT(l->str.len >= start + len && "Tried fetching more than line contents in ss_init()");

@@ -965,7 +965,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  case LEXST_SPACE:
-		lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
+		lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 		len   = 1;
 		start = i;
 		/* Fallthrough*/
@@ -991,7 +991,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  case LEXST_SPACE:
-		lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
+		lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 		len   = 1;
 		start = i;
 		/* Fallthrough */
