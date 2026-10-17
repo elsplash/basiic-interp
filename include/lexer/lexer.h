@@ -32,7 +32,8 @@ This is so we know which struct/enum/function is from where.
 #include "spans.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /*
@@ -43,7 +44,8 @@ Though with some tokens added in for other things not included
 there, like the TT_ID for identifiers, TT_NUM for numbers, and
 TT_ALNUM for alphanumeric labels.
 */
-typedef enum {
+typedef enum
+{
   /* -- SYMBOLIC TOKENS -- */
   TT_SPACE,
 
@@ -326,7 +328,8 @@ more information.
 The span contains the section of the linespan that contains said
 token.
 */
-typedef struct {
+typedef struct
+{
   lexer_tokentype_t type;
   spans_strspan_t   span;
 } lexer_lextoken_t;
@@ -335,14 +338,16 @@ typedef struct {
 This vector is pretty simple. Just a vector implementation for
 our lexer tokens to be stored in.
 */
-typedef struct {
+typedef struct
+{
   lexer_lextoken_t * ltok_ptr;
   unsigned int       len;
   unsigned int       cap;
 } lexer_lextok_vec_t;
 
 /* The lexer state, for the tokenize line function. */
-typedef enum {
+typedef enum
+{
   LEXST_ID,
   LEXST_NUM,
   LEXST_ALNUM,
@@ -459,7 +464,8 @@ LEXER_STATIC int lexer_ltvec_push(lexer_lextok_vec_t *restr ltvec, const lexer_l
   if (!ltvec) return -1;
 
   int rval = 0;
-  if ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap) {
+  if ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap)
+  {
 	  while ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap)
 	    ltvec->cap *= 2;
 	  ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
@@ -1009,12 +1015,13 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 	  continue;
 	}
 
-	if (len > 1)
+    if (len > 1)
 	{
 	  lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 	  len   = 1;
 	  start = i;
-	} else if (c == '\n')
+    }
+    else if (c == '\n')
 	{
 	  if (len - 1 != 0) lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 	  len   = 1;
@@ -1183,7 +1190,8 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		len++;
         i++;
 		token_type = TT_LESSEQ;
-      } else if (l->str.__s[i + 1] == '>')
+      }
+      else if (l->str.__s[i + 1] == '>')
       {
 		len++;
         i++;

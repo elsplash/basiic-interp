@@ -15,7 +15,8 @@ There are also some important macros in here aswell.
 #include <stdlib.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #ifndef restr
@@ -103,7 +104,8 @@ This struct will be used for extracting the lines from
 a file, and be used for lexing, which is what the
 strspan_t is for.
 */
-typedef struct {
+typedef struct
+{
   spans_str_t   str;
   const char  * filename;
   size_t        num;
@@ -510,7 +512,8 @@ SPANS_STR_LIB int spans_str_popr(spans_str_t *restr s, const size_t sz)
 
   s->len -= sz;
 
-  if (s->len < s->cap / 4) {
+  if (s->len < s->cap / 4)
+  {
     s->cap /= 2;
     s->__s  = realloc(s->__s, s->cap);
 
@@ -530,7 +533,8 @@ SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, const size_t sz)
   for (size_t i = 0; i < s->len - sz; i++)
     s->__s[i] = s->__s[i + sz];
 
-  if (s->len < s->cap / 4) {
+  if (s->len < s->cap / 4)
+  {
     s->cap /= 2;
     s->__s  = realloc(s->__s, s->cap);
 
@@ -543,7 +547,8 @@ SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, const size_t sz)
 
 SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
                                    const size_t       idx,
-                                   const size_t       sz) {
+                                   const size_t       sz)
+{
   if (!s) return -1;
   if (idx + sz >= s->len) return -2;
 
@@ -552,7 +557,8 @@ SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
 
   s->len -= sz;
 
-  if (s->len < s->cap / 4) {
+  if (s->len < s->cap / 4)
+  {
     s->cap /= 2;
     s->__s  = realloc(s->__s, s->cap);
 
