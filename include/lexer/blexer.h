@@ -1,7 +1,13 @@
 /* lexer.h
+COPYRIGHT (C) 2026 ELSPLASH (electrsplash@gmail.com)
+----------------------------------------------------
+
 This header provides the functions for lexing a file, or line.
 The lexing process is aligned with BASIIC.
 it's own.
+
+-------------------------------------------------
+Licensed under the GNU General Public License V3.
 */
 
 #ifndef LEXER_DEF

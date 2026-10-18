@@ -1,4 +1,7 @@
 /* span.h
+COPYRIGHT (C) 2026 ELSPLASH (electrsplash@gmail.com)
+----------------------------------------------------
+
 This header includes the line span, and string span.
 Which also includes ways to manipulate and fetch them.
 
@@ -7,6 +10,9 @@ which is supposed to abstract the dynamic string
 operations, though I don't recommned using this.
 
 There are also some important macros in here aswell.
+
+-------------------------------------------------
+Licensed under the GNU General Public License V3.
 */
 
 #ifndef SPANS_DEF
