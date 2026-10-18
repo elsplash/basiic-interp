@@ -26,6 +26,7 @@ This is so we know which struct/enum/function is from where.
 #endif
 
 #ifndef LEXER_ASSERT
+#include <assert.h>
 #define LEXER_ASSERT(x) assert(x)
 #endif
 
@@ -440,7 +441,6 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 #define LEXER_IMPL
 #ifdef LEXER_IMPL
 #include <stdlib.h>
-#include <assert.h>
 #include <ctype.h>
 
 #ifndef LEXER_LTVEC_INITSZ
@@ -450,7 +450,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 LEXER_STATIC lexer_lextok_vec_t lexer_ltvec_creat(void)
 {
   lexer_lextoken_t *ptr = calloc(sizeof(*ptr), LEXER_LTVEC_INITSZ);
-  assert(ptr && "Failed ot allocate in lexer_ltvec_creat()");
+  LEXER_ASSERT(ptr && "Failed ot allocate in lexer_ltvec_creat()");
 
   return (lexer_lextok_vec_t) {
 	.ltok_ptr = ptr,
@@ -493,7 +493,7 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
 									 const size_t                     start,
 									 const size_t                     len)
 {
-  assert(stat != LEXST_ETC && "State is an impossible state (LEXST_ETC in lexer_tokenize_line())");
+  LEXER_ASSERT(stat != LEXST_ETC && "State is an impossible state (LEXST_ETC in lexer_tokenize_line())");
   strspan_t ss = spans_ss_init(l, l_idx, start, len);
   lexer_ss_to_lower(&ss);
   lexer_tokentype_t token_type;
@@ -890,9 +890,9 @@ LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l
 												 const size_t                  start,
 													   size_t           *restr len) /* This is to keep track of where the string ended. */
 {
-  assert(l && "Passed l parameter is NULL");
-  assert(len && "Passed len parameter is NULL");
-  assert(*len == 0 && "Passed len parameter is invalid");
+  LEXER_ASSERT(l && "Passed l parameter is NULL");
+  LEXER_ASSERT(len && "Passed len parameter is NULL");
+  LEXER_ASSERT(*len == 0 && "Passed len parameter is invalid");
 
   /*
   Manual iteration is required.
@@ -943,7 +943,7 @@ LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l
 LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l,
 												 const size_t                  l_idx)
 {
-  assert(l && "Passed l parameter is NULL");
+  LEXER_ASSERT(l && "Passed l parameter is NULL");
 
   lexer_lextok_vec_t   out   = lexer_ltvec_creat();
   lexer_lexer_state_t  stat  = LEXST_ETC;
@@ -980,7 +980,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  default:
-		assert(0 && "Invalid state in lexer_tokenize_line() (1)");
+		LEXER_ASSERT(0 && "Invalid state in lexer_tokenize_line() (1)");
 	  }
 	  i++;
 	  continue;
@@ -1006,7 +1006,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  default:
-		assert(0 && "Invalid state in lexer-tokenize_line() (2)");
+		LEXER_ASSERT(0 && "Invalid state in lexer-tokenize_line() (2)");
 	  }
 	  i++;
 	  continue;

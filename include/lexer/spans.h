@@ -445,6 +445,7 @@ SPANS_STR_LIB spans_str_t spans_str_creat(void)
 {
   char *p = calloc(1, STR_T_INIT_SZ);
   SPANS_ASSERT(p && "Failed to allocate p in str_creat()");
+
   return (spans_str_t) {
     .__s = p,
     .len = 0,
