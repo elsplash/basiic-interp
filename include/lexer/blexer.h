@@ -51,8 +51,7 @@ Though with some tokens added in for other things not included
 there, like the TT_ID for identifiers, TT_NUM for numbers, and
 TT_ALNUM for alphanumeric labels.
 */
-typedef enum
-{
+typedef enum {
   /* -- SYMBOLIC TOKENS -- */
   TT_SPACE,
 
@@ -293,7 +292,8 @@ typedef enum
 
   TT_KW_POINT,
   TT_KW_PEEK,
-  TT_KW_PEEKS, /* String version of the other function I believe? - ESplash (10.16.2026) */
+  TT_KW_PEEKS, /* String version of the other function I believe? - ESplash
+                  (10.16.2026) */
 
   TT_KW_VARPTR,
   TT_KW_VARSEG,
@@ -324,7 +324,8 @@ typedef enum
   TT_KW_KILL,
 
   TT_KW_SHELL,
-} lexer_tokentype_t;
+}
+lexer_tokentype_t;
 
 /*
 The main datatype we're going to work with.
@@ -339,7 +340,8 @@ typedef struct
 {
   lexer_tokentype_t type;
   spans_strspan_t   span;
-} lexer_lextoken_t;
+}
+lexer_lextoken_t;
 
 /*
 This vector is pretty simple. Just a vector implementation for
@@ -350,7 +352,8 @@ typedef struct
   lexer_lextoken_t * ltok_ptr;
   unsigned int       len;
   unsigned int       cap;
-} lexer_lextok_vec_t;
+}
+lexer_lextok_vec_t;
 
 /* The lexer state, for the tokenize line function. */
 typedef enum
@@ -360,7 +363,8 @@ typedef enum
   LEXST_ALNUM,
   LEXST_SPACE,
   LEXST_ETC,
-} lexer_lexer_state_t;
+}
+lexer_lexer_state_t;
 
 /*
 This function creates an lexer_lextok_vec_t datatype, just for you

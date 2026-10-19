@@ -103,7 +103,8 @@ typedef struct
   char          * __s;
   size_t          len;
   size_t          cap;
-} spans_str_t;
+}
+spans_str_t;
 
 /*
 This struct will be used for extracting the lines from
@@ -115,7 +116,8 @@ typedef struct
   spans_str_t   str;
   const char  * filename;
   size_t        num;
-} spans_linespan_t;
+}
+spans_linespan_t;
 
 /*
 This struct is used for extracting line spans from a file.
@@ -126,7 +128,8 @@ typedef struct
   spans_linespan_t * ptr;
   size_t             len;
   size_t             cap;
-} spans_ls_table_t;
+}
+spans_ls_table_t;
 
 /*
 This struct will be used for viewing a part of the
@@ -154,7 +157,8 @@ typedef struct
   a function `ls_fetch_file(file)`.
   */
   size_t line_idx;
-} spans_strspan_t;
+}
+spans_strspan_t;
 
 /*
 This struct is from strspan_t, which strips the string
@@ -170,7 +174,8 @@ typedef struct
     clmn,
     l_idx,
     line_num;
-} spans_span_t;
+}
+spans_span_t;
 
 /* Returns a default str_t */
 SPANS_STR_LIB spans_str_t spans_str_creat(void);
