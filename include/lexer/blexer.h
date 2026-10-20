@@ -10,8 +10,8 @@ it's own.
 Licensed under the GNU General Public License V3.
 */
 
-#ifndef LEXER_DEF
-#define LEXER_DEF
+#ifndef BLEXER_DEF
+#define BLEXER_DEF
 
 /* NOTE ABOUT PREFIXES:
 I prefer the prefixes be used anyway, just for the sake of
@@ -19,21 +19,31 @@ consistency.
 
 This is so we know which struct/enum/function is from where.
 */
-#if defined(LEXER_IMPL) && !defined(SPANS_IMPL)
+#if defined(BLEXER_IMPL) && !defined(SPANS_IMPL)
 #define SPANS_IMPL
 #endif
 
-#ifndef LEXER_LIB
-#define LEXER_LIB extern
+#ifndef BLEXER_LIB
+#define BLEXER_LIB extern
 #endif
 
-#ifndef LEXER_STATIC
-#define LEXER_STATIC static
+#ifndef BLEXER_STATIC
+#define BLEXER_STATIC static
 #endif
 
-#ifndef LEXER_ASSERT
+#ifndef BLEXER_ASSERT
+
 #include <assert.h>
-#define LEXER_ASSERT(x) assert(x)
+#define BLEXER_ASSERT(check, message) assert(check && message)
+
+#endif
+
+#ifndef BLEXER_PANIC
+#define BLEXER_PANIC(message) \
+do {                         \
+  puts(message);             \
+  exit(1);                   \
+} while (0)
 #endif
 
 #include "spans.h"
@@ -325,12 +335,12 @@ typedef enum {
 
   TT_KW_SHELL,
 }
-lexer_tokentype_t;
+blexer_tokentype_t;
 
 /*
 The main datatype we're going to work with.
 
-The type declares it's type of token, see "lexer_tokentype_t" for
+The type declares it's type of token, see "blexer_tokentype_t" for
 more information.
 
 The span contains the section of the linespan that contains said
@@ -338,10 +348,10 @@ token.
 */
 typedef struct
 {
-  lexer_tokentype_t type;
+  blexer_tokentype_t type;
   spans_strspan_t   span;
 }
-lexer_lextoken_t;
+blexer_lextoken_t;
 
 /*
 This vector is pretty simple. Just a vector implementation for
@@ -349,11 +359,11 @@ our lexer tokens to be stored in.
 */
 typedef struct
 {
-  lexer_lextoken_t * ltok_ptr;
+  blexer_lextoken_t * ltok_ptr;
   unsigned int       len;
   unsigned int       cap;
 }
-lexer_lextok_vec_t;
+blexer_lextok_vec_t;
 
 /* The lexer state, for the tokenize line function. */
 typedef enum
@@ -364,35 +374,35 @@ typedef enum
   LEXST_SPACE,
   LEXST_ETC,
 }
-lexer_lexer_state_t;
+blexer_lexer_state_t;
 
 /*
-This function creates an lexer_lextok_vec_t datatype, just for you
+This function creates an blexer_lextok_vec_t datatype, just for you
 to not do it manually. The ptr will be heap allocated by default.
 */
-LEXER_STATIC lexer_lextok_vec_t lexer_ltvec_creat(void);
+BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void);
 
 /*
 This function is used to push to the lexer token vector
-(lexer_lextoken_vec_t).
+(blexer_lextoken_vec_t).
 
 The reason why it's static, and not part of the library is
 that it's not supposed to give function mutators to the vector,
 and only view it.
 */
-LEXER_STATIC int lexer_ltvec_push(lexer_lextok_vec_t *restr ltv, const lexer_lextoken_t p);
+BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltv, const blexer_lextoken_t p);
 
 /*
-Thi fetches the token type from lexer_lexer_state_t, and also
+Thi fetches the token type from blexer_lexer_state_t, and also
 fetches spans_strspan_t from the parameters given. This is repeated
 twice so it is coupled.
 
-This is supposed to be a helper function for lexer_tokenize_line,
+This is supposed to be a helper function for blexer_tokenize_line,
 so I don't think you'd want this in the library anyway.
 */
-LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
-										   lexer_lextok_vec_t  *restr out,
-									 const lexer_lexer_state_t        stat,
+BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t    *restr l,
+										   blexer_lextok_vec_t  *restr out,
+									 const blexer_lexer_state_t        stat,
 									 const size_t                     l_idx,
 									 const size_t                     start,
 									 const size_t                     len);
@@ -401,21 +411,21 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
 This is a function that frees the lexer token's strspan, for the
 sake of verbosity.
 */
-LEXER_LIB int lexer_ltok_free(lexer_lextoken_t *restr ltok);
+BLEXER_LIB int blexer_ltok_free(blexer_lextoken_t *restr ltok);
 
 /*
-This frees the datatype `lexer_lextok_vec_t`, which may contain several
+This frees the datatype `blexer_lextok_vec_t`, which may contain several
 `spans_strspans_t`, so this function will free the string spans for you,
 though it doesn't free the `ltv` parameter given, so if it is heap
 allocated you may free it on the callee, not here.
 */
-LEXER_LIB int lexer_ltvec_free(lexer_lextok_vec_t *restr ltvec);
+BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec);
 
 /*
 This function tokenizes the special logic for strings in qBasic, though
 it has to know where it should start first.
 */
-LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l,
+BLEXER_LIB blexer_lextoken_t blexer_tokenize_string(const spans_linespan_t *restr l,
 												 const size_t                  l_idx,
 												 const size_t                  start,
 													   size_t           *restr len);
@@ -424,59 +434,59 @@ LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l
 This function is supposed to be the main tokenizer, so it should
 be the only one in this header.
 
-Why not make a lexer_tokenize_file(), you may ask? Well, it's
+Why not make a blexer_tokenize_file(), you may ask? Well, it's
 because BASIC is line based, and the main loop is simple enough
 for you to inline yourself.
 
 Remember to free the returned value, as it is heap allocated.
 */
-LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l,
+BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *restr l,
 												 const size_t                  l_idx);
 
-#define tokentype_t   lexer_tokentype_t
-#define lextoken_t    lexer_lextoken_t
-#define lextok_vec_t  lexer_lextok_vec_t
-#define lexer_state_t lexer_lexer_state_t
+#define tokentype_t   blexer_tokentype_t
+#define lextoken_t    blexer_lextoken_t
+#define lextok_vec_t  blexer_lextok_vec_t
+#define lexer_state_t blexer_lexer_state_t
 
-#define ltvec_creat()                                 lexer_ltvec_creat()
-#define ltvec_push(ltv, p)                            lexer_ltvec_push(ltv, p)
-#define fetch_n_push(l, out, stat, l_idx, start, len) lexer_fetch_n_push(l, out, stat, l_idx, start, len)
+#define ltvec_creat()                                 blexer_ltvec_creat()
+#define ltvec_push(ltv, p)                            blexer_ltvec_push(ltv, p)
+#define fetch_n_push(l, out, stat, l_idx, start, len) blexer_fetch_n_push(l, out, stat, l_idx, start, len)
 
-#define ltok_free(ltok)         lexer_ltok_free(ltok)
-#define ltvec_free(ltvec)       lexer_ltvec_free(ltvec)
-#define tokenize_line(l, l_idx) lexer_tokenize_line(l, l_idx)
+#define ltok_free(ltok)         blexer_ltok_free(ltok)
+#define ltvec_free(ltvec)       blexer_ltvec_free(ltvec)
+#define tokenize_line(l, l_idx) blexer_tokenize_line(l, l_idx)
 
 /* --- IMPLEMENTATION --- */
 
-#define LEXER_IMPL
-#ifdef LEXER_IMPL
+#ifdef BLEXER_IMPL
+
 #include <stdlib.h>
 #include <ctype.h>
 
-#ifndef LEXER_LTVEC_INITSZ
-#define LEXER_LTVEC_INITSZ 8
+#ifndef BLEXER_LTVEC_INITSZ
+#define BLEXER_LTVEC_INITSZ 8
 #endif
 
-LEXER_STATIC lexer_lextok_vec_t lexer_ltvec_creat(void)
+BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void)
 {
-  lexer_lextoken_t *ptr = calloc(sizeof(*ptr), LEXER_LTVEC_INITSZ);
-  LEXER_ASSERT(ptr && "Failed ot allocate in lexer_ltvec_creat()");
+  blexer_lextoken_t *ptr = calloc(sizeof(*ptr), BLEXER_LTVEC_INITSZ);
+  BLEXER_ASSERT(ptr, "Failed ot allocate in blexer_ltvec_creat()");
 
-  return (lexer_lextok_vec_t) {
+  return (blexer_lextok_vec_t) {
 	.ltok_ptr = ptr,
 	.len      = 0,
-	.cap      = LEXER_LTVEC_INITSZ
+	.cap      = BLEXER_LTVEC_INITSZ
   };
 }
 
-LEXER_STATIC int lexer_ltvec_push(lexer_lextok_vec_t *restr ltvec, const lexer_lextoken_t p)
+BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltvec, const blexer_lextoken_t p)
 {
   if (!ltvec) return -1;
 
   int rval = 0;
-  if ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap)
+  if ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
   {
-	  while ((ltvec->len + 1) * sizeof(lexer_lextoken_t) >= ltvec->cap)
+	  while ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
 	    ltvec->cap *= 2;
 	  ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
 	  rval = 1;
@@ -486,7 +496,7 @@ LEXER_STATIC int lexer_ltvec_push(lexer_lextok_vec_t *restr ltvec, const lexer_l
   return rval;
 }
 
-LEXER_STATIC int lexer_ss_to_lower(spans_strspan_t *restr ss)
+BLEXER_STATIC int blexer_ss_to_lower(spans_strspan_t *restr ss)
 {
   if (!ss) return -1;
   for (size_t i = 0; i < ss->str.len; i++)
@@ -496,17 +506,17 @@ LEXER_STATIC int lexer_ss_to_lower(spans_strspan_t *restr ss)
   return 0;
 }
 
-LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
-										   lexer_lextok_vec_t  *restr out,
-									 const lexer_lexer_state_t        stat,
+BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t    *restr l,
+										   blexer_lextok_vec_t  *restr out,
+									 const blexer_lexer_state_t        stat,
 									 const size_t                     l_idx,
 									 const size_t                     start,
 									 const size_t                     len)
 {
-  LEXER_ASSERT(stat != LEXST_ETC && "State is an impossible state (LEXST_ETC in lexer_tokenize_line())");
+  BLEXER_ASSERT(stat != LEXST_ETC, "State is an impossible state (LEXST_ETC in blexer_tokenize_line())");
   strspan_t ss = spans_ss_init(l, l_idx, start, len);
-  lexer_ss_to_lower(&ss);
-  lexer_tokentype_t token_type;
+  blexer_ss_to_lower(&ss);
+  blexer_tokentype_t token_type;
 
   switch (stat)
   {
@@ -866,14 +876,14 @@ LEXER_STATIC void lexer_fetch_n_push(const spans_linespan_t    *restr l,
 	break;
   }
 
-  const lexer_lextoken_t ltok = (lexer_lextoken_t) {
+  const blexer_lextoken_t ltok = (blexer_lextoken_t) {
 	.type = token_type,
 	.span = ss,
   };
-  lexer_ltvec_push(out, ltok);
+  blexer_ltvec_push(out, ltok);
 }
 
-LEXER_LIB int lexer_ltok_free(lexer_lextoken_t *restr ltok)
+BLEXER_LIB int blexer_ltok_free(blexer_lextoken_t *restr ltok)
 {
   if (!ltok)
 	return -1;
@@ -883,26 +893,26 @@ LEXER_LIB int lexer_ltok_free(lexer_lextoken_t *restr ltok)
   return 0;
 }
 
-LEXER_LIB int lexer_ltvec_free(lexer_lextok_vec_t *restr ltvec)
+BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
 {
   if (!ltvec) return -2;
   int rval = 0;
   for (size_t i = 0; i < ltvec->len; i++)
   {
-	if (lexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) rval++;
+	if (blexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) rval++;
   }
   free(ltvec->ltok_ptr);
   return 0;
 }
 
-LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l,
+BLEXER_LIB blexer_lextoken_t blexer_tokenize_string(const spans_linespan_t *restr l,
 												 const size_t                  l_idx,
 												 const size_t                  start,
 													   size_t           *restr len) /* This is to keep track of where the string ended. */
 {
-  LEXER_ASSERT(l && "Passed l parameter is NULL");
-  LEXER_ASSERT(len && "Passed len parameter is NULL");
-  LEXER_ASSERT(*len == 0 && "Passed len parameter is invalid");
+  BLEXER_ASSERT(l, "Passed l parameter is NULL");
+  BLEXER_ASSERT(len, "Passed len parameter is NULL");
+  BLEXER_ASSERT(*len == 0, "Passed len parameter is invalid");
 
   /*
   Manual iteration is required.
@@ -925,7 +935,7 @@ LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l
     }
   }
 
-  lexer_lextoken_t out = (lexer_lextoken_t) {
+  blexer_lextoken_t out = (blexer_lextoken_t) {
 	.type = TT_NS_STRING,
 	.span = spans_ss_init(l, l_idx, start, *len),
   };
@@ -950,13 +960,13 @@ LEXER_LIB lexer_lextoken_t lexer_tokenize_string(const spans_linespan_t *restr l
   return out;
 }
 
-LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l,
+BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *restr l,
 												 const size_t                  l_idx)
 {
-  LEXER_ASSERT(l && "Passed l parameter is NULL");
+  BLEXER_ASSERT(l, "Passed l parameter is NULL");
 
-  lexer_lextok_vec_t   out   = lexer_ltvec_creat();
-  lexer_lexer_state_t  stat  = LEXST_ETC;
+  blexer_lextok_vec_t   out   = blexer_ltvec_creat();
+  blexer_lexer_state_t  stat  = LEXST_ETC;
   long                 start = -1;
   size_t               len   = 0;
 
@@ -981,7 +991,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  case LEXST_SPACE:
-		lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+		blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 		len   = 1;
 		start = i;
 		/* Fallthrough*/
@@ -990,7 +1000,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  default:
-		LEXER_ASSERT(0 && "Invalid state in lexer_tokenize_line() (1)");
+		BLEXER_PANIC("Invalid state in blexer_tokenize_line() (1)");
 	  }
 	  i++;
 	  continue;
@@ -1007,7 +1017,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  case LEXST_SPACE:
-		lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+		blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 		len   = 1;
 		start = i;
 		/* Fallthrough */
@@ -1016,7 +1026,7 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 		break;
 
 	  default:
-		LEXER_ASSERT(0 && "Invalid state in lexer-tokenize_line() (2)");
+		BLEXER_PANIC("Invalid state in blexer_tokenize_line() (2)");
 	  }
 	  i++;
 	  continue;
@@ -1027,24 +1037,24 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 
     if (len > 1)
 	{
-	  lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+	  blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 	  len   = 1;
 	  start = i;
     }
     else if (c == '\n')
 	{
-	  if (len - 1 != 0) lexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+	  if (len - 1 != 0) blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 	  len   = 1;
 	  start = i;
 	  const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
-	  lexer_ltvec_push(&out, (lexer_lextoken_t) {
+	  blexer_ltvec_push(&out, (blexer_lextoken_t) {
 		.span = ss,
 		.type = TT_NEWLINE,
 	  });
 	  break;
 	}
 
-	lexer_tokentype_t token_type = TT_NS_ID;
+	blexer_tokentype_t token_type = TT_NS_ID;
 	switch (c)
 	{
 	case ' ':
@@ -1153,8 +1163,8 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
     case '"':
       {
 		size_t string_len = 0;
-        lexer_lextoken_t ltok = lexer_tokenize_string(l, l_idx, i, &string_len);
-		lexer_ltvec_push(&out, ltok);
+        blexer_lextoken_t ltok = blexer_tokenize_string(l, l_idx, i, &string_len);
+		blexer_ltvec_push(&out, ltok);
         i += string_len;
 	  }
       start = -1;
@@ -1236,27 +1246,27 @@ LEXER_LIB lexer_lextok_vec_t lexer_tokenize_line(const spans_linespan_t *restr l
 	  break;
 	}
 	const strspan_t ss = spans_ss_init(l, l_idx, start, len);
-	const lexer_lextoken_t ltok = (lexer_lextoken_t) {
+	const blexer_lextoken_t ltok = (blexer_lextoken_t) {
 	  .span = ss,
 	  .type = token_type,
 	};
 
-	lexer_ltvec_push(&out, ltok);
+	blexer_ltvec_push(&out, ltok);
 
 	start = -1;
 	len   =  0;
 	i++;
   }
 
-  if (len > 0) lexer_fetch_n_push(l, &out, stat, l_idx, start, len);
+  if (len > 0) blexer_fetch_n_push(l, &out, stat, l_idx, start, len);
 
   return out;
 }
 
-#endif /* LEXER_IMPL */
+#endif /* BLEXER_IMPL */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* LEXER_DEF */
+#endif /* BLEXER_DEF */

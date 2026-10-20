@@ -20,7 +20,21 @@ Licensed under the GNU General Public License V3.
 #include "lexer/blexer.h"
 
 #ifndef CST_ASSERT
-#define CST_ASSERT(x) assert(x)
+
+#include <assert.h>
+#define CST_ASSERT(check, message) assert(check && message)
+
+#endif
+
+#ifndef CST_PANIC
+#include <stdlib.h>
+
+#define CST_PANIC(message) \
+do {                       \
+  puts(message);           \
+  exit(1);                 \
+} while (0)
+
 #endif
 
 #ifndef CST_LIB
@@ -53,6 +67,7 @@ typedef enum
 
   /* Statements */
   CNT_S_LABEL,
+  CNT_S_RUN,
 
   /* Miscellaneous */
   CNT_M_APOST_COMMENT,
@@ -65,7 +80,15 @@ typedef struct cst_cstnode_t
 {
   cst_cstnode_type_t     type;
   spans_strspan_t        span;
-  struct cst_cstnode_t * contents; /* NOTE: Can be nullable. */
+
+  /* NOTE
+  This element is used like a linked list,
+  which is only one way, so you can link other
+  CST nodes to each other.
+
+  This means it can also be NULL.
+  */
+  struct cst_cstnode_t * contents;
 }
 cst_cstnode_t;
 
@@ -96,9 +119,9 @@ following:
 CST_STATIC int cst_cnvec_push(cst_cnvec_t *restr cnvec, const cst_cstnode_t cn);
 
 /* This checks if a lexer token is of type `tt`. */
-CST_STATIC inline int cst_expect_ltok(const lexer_lextok_vec_t *restr ltvec,
-									  const size_t                    ltv_idx,
-                                      const lexer_tokentype_t         tt);
+CST_STATIC inline int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
+                                      const size_t                     ltv_idx,
+                                      const blexer_tokentype_t         tt);
 
 /*
 The interface function you may call if you want all the tokens
@@ -107,8 +130,22 @@ to be parsed.
 The returned value may be NULL if it ran into a problem when
 parsing.
 */
-CST_LIB cst_cnvec_t* cst_parse_cst_line(const spans_ls_table_t   *restr lt,
-                                        const lexer_lextok_vec_t *restr ltvec);
+CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec);
+
+/*
+This function will be caled if the parsed line is invalid.
+
+This is not supposed to be reported as of the state right now
+since we don't have enough structure.
+
+This can return an error code which are what follows:
+-2 - ltvec is NULL
+-1 - cnvec is NULL
+ 0 = No issues
+*/
+CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
+                          const cst_cnvec_t         *restr cnvec,
+                          const size_t                     ltstart);
 
 /*
 This function parses the first possible token that could be a label.
@@ -117,17 +154,19 @@ Which is why no start is given.
 The returned value's .contents is always NULL. So you must check if
 the .type is not CNT_S_LABEL instead.
 */
-CST_LIB cst_cstnode_t cst_parse_label(const lexer_lextok_vec_t *restr ltvec);
+CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec);
 
 #define cstnode_type_t cst_cstnode_type_t
 #define cstnode_t      cst_cstnode_t
 #define cnvec_t        cst_cnvec_t
 
-#define cnvec_creat()         cst_cnvec_creat()
-#define cnvec_push(cnvec, cn) cst_cnvec_push(cnvec, cn)
+#define cnvec_creat()                   cst_cnvec_creat()
+#define cnvec_push(cnvec, cn)           cst_cnvec_push(cnvec, cn)
+#define expect_ltok(ltvec, ltstart, tt) cst_expect_ltok(ltvec, ltstart, tt)
 
-#define parse_cst_line(lt, ltvec) cst_parse_cst_line(lt, ltvec)
-#define parse_label(ltvec)        cst_parse_label(ltvec)
+#define parse_cst_line(lt, ltvec)        cst_parse_cst_line(lt, ltvec)
+#define error_cst(ltvec, cnvec, ltstart) cst_error_cst(ltvec, cnvec, ltstart)
+#define parse_label(ltvec)               cst_parse_label(ltvec)
 
 /* --- IMPLEMENTATION --- */
 
@@ -139,7 +178,7 @@ CST_LIB cst_cstnode_t cst_parse_label(const lexer_lextok_vec_t *restr ltvec);
 CST_STATIC cst_cnvec_t cst_cnvec_creat(void)
 {
   cst_cstnode_t *ptr = calloc(sizeof(*ptr), CST_CNVEC_INITSZ);
-  CST_ASSERT(ptr && "Failed to allocate in cst_cnvec_creat().");
+  CST_ASSERT(ptr, "Failed to allocate in cst_cnvec_creat().");
 
   return (cst_cnvec_t) {
     .ptr = ptr,
@@ -157,7 +196,7 @@ CST_STATIC int cst_cnvec_push(      cst_cnvec_t   *restr cnvec,
   {
     cnvec->cap *= 2;
     cnvec->ptr = realloc(cnvec->ptr, cnvec->cap);
-	if (!cnvec->ptr) return -2;
+    if (!cnvec->ptr) return -2;
   }
 
   cnvec->ptr[cnvec->len] = cn;
@@ -166,18 +205,17 @@ CST_STATIC int cst_cnvec_push(      cst_cnvec_t   *restr cnvec,
   return 0;
 }
 
-CST_STATIC inline int cst_expect_ltok(const lexer_lextok_vec_t *restr ltvec,
-									  const size_t                    ltv_idx,
-                                      const lexer_tokentype_t         tt)
+CST_STATIC inline int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
+                                      const size_t                     ltv_idx,
+                                      const blexer_tokentype_t         tt)
 {
-  CST_ASSERT(ltv_idx < ltvec->len && "Attempt to index out of bounds in cst_expect_ltok().");
-  CST_ASSERT(ltvec && "Attempt to index ltvec, which is NULL in cst_expect_ltok().");
+  CST_ASSERT(ltv_idx < ltvec->len, "Attempt to index out of bounds in cst_expect_ltok().");
+  CST_ASSERT(ltvec, "Attempt to index ltvec, which is NULL in cst_expect_ltok().");
 
   return ltvec->ltok_ptr[ltv_idx].type == tt;
 }
 
-CST_LIB cst_cnvec_t* cst_parse_cst_line(const spans_ls_table_t   *restr lt,
-                                        const lexer_lextok_vec_t *restr ltvec)
+CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 {
   cst_cnvec_t *cnvec = calloc(1, sizeof(*cnvec->ptr));
   size_t cur_idx = 0;
@@ -199,389 +237,466 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const spans_ls_table_t   *restr lt,
     const cst_cstnode_t cn = (cst_cstnode_t) {
       .type = CNT_M_APOST_COMMENT,
       .span = ltvec->ltok_ptr[cur_idx].span,
-	  .contents = NULL,
+      .contents = NULL,
     };
-	cst_cnvec_push(cnvec, cn);
+    cst_cnvec_push(cnvec, cn);
   }
-	return cnvec;
+    return cnvec;
 
   case TT_NS_ID:
-	cur_idx++;
+    cur_idx++;
     switch (ltvec->ltok_ptr[cur_idx].type)
     {
-    case TT_PERCENT:
     case TT_AMPERSAND:
-    case TT_NOT:
-    case TT_POUND:
+      /* Fallthrough*/
+    case TT_EXCL_MARK:
+      /* Fallthrough */
     case TT_DOLLAR:
+      /* Fallthrough */
+    case TT_POUND:
+      /* Fallthrough */
+    case TT_PERCENT:
+      break;
+
     default:
-      // Error
+      goto Error;
     }
+    if (cst_expect_ltok(ltvec, cur_idx, TT_SPACE)) goto Error;
+    cur_idx++;
+    if (cst_expect_ltok(ltvec, cur_idx, TT_EQUAL)) goto Error;
+    cur_idx++;
+    if (cst_expect_ltok(ltvec, cur_idx, TT_SPACE)) goto Error;
+    cur_idx++;
+    /* TODO: Make the Variable definition node */
+    /* Parse Expression*/
     break;
 
   case TT_KW_RUN:
-    if (!cst_expect_ltok(ltvec, cur_idx, TT_SPACE))
-    {
-	  // Error
-    }
-	break;
+  {
+    spans_strspan_t ss = ltvec->ltok_ptr[cur_idx].span;
+    cur_idx++;
+
+    if (!cst_expect_ltok(ltvec, cur_idx, TT_SPACE)) goto Error;
+    ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
+    cur_idx++;
+
+    if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_STRING) ||
+        !cst_expect_ltok(ltvec, cur_idx, TT_NS_NUM))
+      goto Error;
+    ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
+    /* TODO: Parse expression function */
+    cur_idx++;
+
+    cst_cstnode_t cn = (cst_cstnode_t) {
+      .type = CNT_S_RUN,
+      .span = ss,
+      .contents = NULL, /* TODO: Replace this with expression */
+    };
+    cst_cnvec_push(cn);
+  }
+
+    if (!/* TODO: Consume comment token */0)
+      goto Error;
+    break;
+
   case TT_KW_CALL:
-	break;
+    break;
+
   case TT_KW_CHAIN:
-	break;
+    break;
+
   case TT_KW_RETURN:
-	break;
+    break;
 
   case TT_KW_COMMON:
-	break;
+    break;
 
   case TT_KW_DECLARE:
-	break;
+    break;
   case TT_KW_DEF:
-	break;
+    break;
 
   case TT_KW_DO:
-	break;
+    break;
   case TT_KW_TO:
-	break;
+    break;
   case TT_KW_UNTIL:
-	break;
+    break;
 
   case TT_KW_IF:
-	break;
+    break;
   case TT_KW_ELSE:
-	break;
+    break;
   case TT_KW_ELSEIF:
-	break;
+    break;
   case TT_KW_THEN:
-	break;
+    break;
 
   case TT_KW_CASE:
-	break;
+    break;
 
   case TT_KW_END:
-	break;
+    break;
   case TT_KW_ENDDEF:
-	break;
+    break;
 
   case TT_KW_EXIT:
-	break;
+    break;
 
   case TT_KW_FOR:
-	break;
+    break;
   case TT_KW_WHILE:
-	break;
+    break;
   case TT_KW_LOOP:
-	break;
+    break;
 
   case TT_KW_NEXT:
-	break;
+    break;
   case TT_KW_STOP:
-	break;
+    break;
 
   case TT_KW_GOSUB:
-	break;
+    break;
   case TT_KW_GOTO:
-	break;
+    break;
 
   case TT_KW_REM:
-	break;
+    break;
 
   case TT_KW_SELECT:
-	break;
+    break;
 
   case TT_KW_SUB:
-	break;
+    break;
   case TT_KW_WEND:
-	break;
+    break;
 
   case TT_KW_BEEP:
-	break;
+    break;
   case TT_KW_PLAY:
-	break;
+    break;
   case TT_KW_SOUND:
-	break;
+    break;
 
   case TT_KW_CLEAR:
-	break;
+    break;
   case TT_KW_CLS:
-	break;
+    break;
 
   case TT_KW_CLOSE:
-	break;
+    break;
   case TT_KW_OPEN:
-	break;
+    break;
 
   case TT_KW_COLOR:
-	break;
+    break;
   case TT_KW_PAINT:
-	break;
+    break;
   case TT_KW_PALLETE:
-	break;
+    break;
   case TT_KW_PMAP:
-	break;
+    break;
   case TT_KW_PRESET:
-	break;
+    break;
   case TT_KW_PSET:
-	break;
+    break;
 
   case TT_KW_DRAW:
-	break;
+    break;
   case TT_KW_LINE:
-	break;
+    break;
 
   case TT_KW_SCREEN:
-	break;
+    break;
   case TT_KW_VIEW:
-	break;
+    break;
   case TT_KW_WINDOW:
-	break;
+    break;
   case TT_KW_WIDTH:
-	break;
+    break;
 
   case TT_KW_COM:
-	break;
+    break;
   case TT_KW_DATA:
-	break;
+    break;
   case TT_KW_ERROR:
-	break;
+    break;
 
   case TT_KW_FIELD:
-	break;
+    break;
   case TT_KW_LOCATE:
-	break;
+    break;
 
   case TT_KW_GET:
-	break;
+    break;
   case TT_KW_INPUT:
-	break;
+    break;
   case TT_KW_KEY:
-	break;
+    break;
 
   case TT_KW_LPRINT:
-	break;
+    break;
 
   case TT_KW_OUT:
-	break;
+    break;
 
   case TT_KW_PRINT:
-	break;
+    break;
   case TT_KW_PUT:
-	break;
+    break;
 
   case TT_KW_RANDOMIZE:
-	break;
+    break;
 
   case TT_KW_READ:
-	break;
+    break;
   case TT_KW_WRITE:
-	break;
+    break;
 
   case TT_KW_RESTORE:
-	break;
+    break;
 
   case TT_KW_SLEEP:
-	break;
+    break;
 
   case TT_KW_AS:
-	break;
+    break;
   case TT_KW_CONST:
-	break;
+    break;
   case TT_KW_STATIC:
-	break;
+    break;
   case TT_KW_SHARED:
-	break;
+    break;
 
   case TT_KW_ERASE:
-	break;
+    break;
 
   case TT_KW_DIM:
-	break;
+    break;
   case TT_KW_REDIM:
-	break;
+    break;
 
   case TT_KW_TYPE:
-	break;
+    break;
 
   case TT_KW_DEFDBL:
-	break;
+    break;
   case TT_KW_DEFINT:
-	break;
+    break;
   case TT_KW_DEFLNG:
-	break;
+    break;
   case TT_KW_DEFSNG:
-	break;
+    break;
   case TT_KW_DEFSTR:
-	break;
+    break;
 
   case TT_KW_CDBL:
-	break;
+    break;
   case TT_KW_CINT:
-	break;
+    break;
   case TT_KW_CLNG:
-	break;
+    break;
   case TT_KW_COS:
-	break;
+    break;
   case TT_KW_CSNG:
-	break;
+    break;
   case TT_KW_CSRLIN:
-	break;
+    break;
 
   case TT_KW_ABS:
-	break;
+    break;
   case TT_KW_ATN:
-	break;
+    break;
   case TT_KW_EXP:
-	break;
+    break;
   case TT_KW_FIX:
-	break;
+    break;
   case TT_KW_INT:
-	break;
+    break;
   case TT_KW_LOG:
-	break;
+    break;
   case TT_KW_SGN:
-	break;
+    break;
   case TT_KW_SIN:
-	break;
+    break;
   case TT_KW_SQR:
-	break;
+    break;
   case TT_KW_TAN:
-	break;
+    break;
 
   case TT_KW_ASC:
-	break;
+    break;
   case TT_KW_HEXS:
-	break;
+    break;
   case TT_KW_OCTS:
-	break;
+    break;
   case TT_KW_CHRS:
-	break;
+    break;
 
   case TT_KW_INKEYS:
-	break;
+    break;
   case TT_KW_INSTR:
-	break;
+    break;
 
   case TT_KW_LCASES:
-	break;
+    break;
   case TT_KW_UCASES:
-	break;
+    break;
 
   case TT_KW_LEFTS:
-	break;
+    break;
   case TT_KW_MIDS:
-	break;
+    break;
   case TT_KW_RIGHTS:
-	break;
+    break;
 
   case TT_KW_LTRIMS:
-	break;
+    break;
   case TT_KW_RTRIMS:
-	break;
+    break;
 
   case TT_KW_LEN:
-	break;
+    break;
 
   case TT_KW_SPACES:
-	break;
+    break;
 
   case TT_KW_STRS:
-	break;
+    break;
   case TT_KW_STRINGS:
-	break;
+    break;
 
   case TT_KW_VAL:
-	break;
+    break;
 
   case TT_KW_EOF:
-	break;
+    break;
   case TT_KW_ERL:
-	break;
+    break;
   case TT_KW_ERR:
-	break;
+    break;
   case TT_KW_FRE:
-	break;
+    break;
   case TT_KW_INP:
-	break;
+    break;
   case TT_KW_LOF:
-	break;
+    break;
   case TT_KW_POS:
-	break;
+    break;
 
   case TT_KW_POINT:
-	break;
+    break;
   case TT_KW_PEEK:
-	break;
+    break;
   case TT_KW_PEEKS:
-	break;
+    break;
 
   case TT_KW_VARPTR:
-	break;
+    break;
   case TT_KW_VARSEG:
-	break;
+    break;
 
   case TT_KW_TIME:
-	break;
+    break;
   case TT_KW_DATE:
-	break;
+    break;
 
   case TT_KW_AND:
-	break;
+    break;
   case TT_KW_EQV:
-	break;
+    break;
   case TT_KW_IMP:
-	break;
+    break;
   case TT_KW_MOD:
-	break;
+    break;
   case TT_KW_NOT:
-	break;
+    break;
   case TT_KW_OR:
-	break;
+    break;
   case TT_KW_XOR:
-	break;
+    break;
 
   case TT_KW_CIRCLE:
-	break;
+    break;
 
   case TT_KW_CHDIR:
-	break;
+    break;
   case TT_KW_MKDIR:
-	break;
+    break;
   case TT_KW_RMDIR:
-	break;
+    break;
 
   case TT_KW_FILES:
-	break;
+    break;
   case TT_KW_NAME:
-	break;
+    break;
 
   case TT_KW_KILL:
-	break;
+    break;
 
   case TT_KW_SHELL:
-	break;
+    break;
 
   default:
-	break;
+    break;
   }
 }
 
-CST_LIB cst_cstnode_t cst_parse_label(const lexer_lextok_vec_t *restr ltvec)
+CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
+                          const cst_cnvec_t        *restr cnvec,
+                          const size_t					  ltstart)
+{
+  cst_cstnode_t cn = (cst_cstnode_t) {
+    .type = CNT_M_ERR,
+    .span = ltvec->ltok_ptr[ltstart].span,
+    .contents = NULL,
+  };
+  
+  for (size_t i = ltstart; i < ltvec->len; i++)
+  {
+    // ...
+    cn.contents = (cst_cstnode_t) {
+    };
+  }
+
+Exit:
+  return 0;
+
+Error:
+  switch (cst_error_cst(ltvec, cnvec, cur_idx))
+  {
+  case -2:
+    CST_PANIC("CST Error fetch: cnvec is NULL. Aborting...");
+
+  case -1:
+    CST_PANIC("CST Error fetch: ltvec is NULL. Aborting...");
+
+  case 0:
+    break;
+
+  default:
+    CST_PANIC("CST Error fetch: switch case not updated (1)");
+  }
+
+  goto Exit;
+}
+
+CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec)
 {
   if (ltvec->ltok_ptr[0].type == TT_NS_NUM)
   {
     return (cst_cstnode_t) {
       .type     = CNT_S_LABEL,
       .span     = ltvec->ltok_ptr[0].span,
-	  .contents = NULL
+      .contents = NULL
     };
   }
   else if ((ltvec->ltok_ptr[0].type == TT_NS_ID ||
             ltvec->ltok_ptr[0].type == TT_NS_ALNUM) &&
            ltvec->ltok_ptr[1].type == TT_COLON)
   {
-	spans_strspan_t ss = ltvec->ltok_ptr[0].span;
-	spans_ss_concat(&ss, &ltvec->ltok_ptr[1].span);
+    spans_strspan_t ss = ltvec->ltok_ptr[0].span;
+    spans_ss_concat(&ss, &ltvec->ltok_ptr[1].span);
     return (cst_cstnode_t) {
       .type = CNT_S_LABEL,
       .span = ss,
@@ -594,6 +709,20 @@ CST_LIB cst_cstnode_t cst_parse_label(const lexer_lextok_vec_t *restr ltvec)
     .span     = ltvec->ltok_ptr[0].span,
     .contents = NULL,
   };
+}
+
+#define CST_FREEARR_INITSZ 8
+
+CST_LIB void cst_cstnode_free(cst_cstnode_t *cn)
+{
+  cst_cstnode_t *free_cn;
+  cst_cstnode_t *cur_cn = cn;
+  while (cur_cn->contents)
+  {
+    free_cn = cur_cn;
+    cur_cn = free_cn->contents;
+    free(free_cn);
+  }
 }
 
 #endif

@@ -20,11 +20,6 @@ Licensed under the GNU General Public License V3.
 
 #include <stdlib.h>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #ifndef restr
 
 #if   defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
@@ -92,6 +87,16 @@ This macro expands so it makes static functions properly.
 
 #ifndef SPANS_SS_STATIC
 #define SPANS_SS_STATIC glob_static
+#endif
+
+#ifndef SPANS_ASSERT
+#include <assert.h>
+#define SPANS_ASSERT(check, message) assert(check && message)
+#endif
+
+#ifdef __cplusplus
+extern "C"
+{
 #endif
 
 /*
@@ -438,8 +443,8 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 
 /* --- IMPLEMENTATION --- */
 
-#define SPANS_IMPL
 #ifdef SPANS_IMPL
+
 #include <stdio.h>
 #include <string.h>
 
@@ -447,15 +452,10 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define STR_T_INIT_SZ 64
 #endif
 
-#ifndef SPANS_ASSERT
-#include <assert.h>
-#define SPANS_ASSERT(x) assert(x)
-#endif
-
 SPANS_STR_LIB spans_str_t spans_str_creat(void)
 {
   char *p = calloc(1, STR_T_INIT_SZ);
-  SPANS_ASSERT(p && "Failed to allocate p in str_creat()");
+  SPANS_ASSERT(p, "Failed to allocate p in str_creat()");
 
   return (spans_str_t) {
     .__s = p,
@@ -476,7 +476,7 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
 
   char * str = calloc(1, i);
 
-  SPANS_ASSERT(str && "Failed to allocate str in str_creat()");
+  SPANS_ASSERT(str, "Failed to allocate str in str_creat()");
 
   strcpy(str, s);
 
@@ -911,12 +911,12 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
                                            const size_t                     start,
                                            const size_t                     len)
 {
-  SPANS_ASSERT(l && "l is NULL in ss_init()");
-  SPANS_ASSERT(l->str.len > start && "Starting index is out of l->str's bounds in ss_init()");
-  SPANS_ASSERT(l->str.len >= start + len && "Tried fetching more than line contents in ss_init()");
+  SPANS_ASSERT(l, "l is NULL in ss_init()");
+  SPANS_ASSERT(l->str.len > start, "Starting index is out of l->str's bounds in ss_init()");
+  SPANS_ASSERT(l->str.len >= start + len, "Tried fetching more than line contents in ss_init()");
 
   char *p = spans_ls_fetch_self(l, start, len);
-  SPANS_ASSERT(p && "Failed to fetch string from linespan in ss_init()");
+  SPANS_ASSERT(p, "Failed to fetch string from linespan in ss_init()");
 
   spans_str_t s = str_init(p);
   free(p);
@@ -984,7 +984,7 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
   char * spaces1  = spans_chr_repeat(' ', spans_numlen(l->num));
   char * spaces2  = spans_chr_repeat(' ', s->clmn);
   char * swiggly = spans_chr_repeat(swiggly_chr, s->len);
-  if (!spaces1 && !spaces2 && !swiggly) return NULL;
+  if (!spaces1 &&  !spaces2 && !swiggly) return NULL;
 
   char *ls_display = spans_ls_display(l);
   snprintf(buf, buf_sz, "%s\n%s | %s%s",
@@ -1001,7 +1001,7 @@ SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
                                       const spans_strspan_t  *restr s)
 {
   const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
-  SPANS_ASSERT(l && "l_idx of s is invalid.");
+  SPANS_ASSERT(l, "l_idx of s is invalid.");
 
   return (spans_span_t) {
     .len      = s->len,
