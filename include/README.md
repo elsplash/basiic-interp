@@ -27,8 +27,13 @@ control.
 ## Other libraries
 
 The other libraries also has `README.md`s inside them, so I
-recommned checking them out, as this `README.md` does not
+recommned checking them out, as this `README.md` will not
 go into them.
+
+Though on the other hand, for you to use the implementation
+of all BASIIC Libraries here, you may define `BASIIC_IMPL`
+like so; `#define BASIIC_IMPL`, as the interface header
+library will do them automatically for you.
 
 ## Future implementation
 
