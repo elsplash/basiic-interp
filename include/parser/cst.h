@@ -27,8 +27,9 @@ Licensed under the GNU General Public License V3.
 #endif
 
 #ifndef CST_PANIC
-#include <stdlib.h>
 
+#include <stdio.h>
+#include <stdlib.h>
 #define CST_PANIC(message) \
 do {                       \
   puts(message);           \
@@ -57,16 +58,33 @@ This is the type of a CST Node.
 Which are labelled accordingly:
 CNT => CST Node Type
 
-CNT_S... => Statement
+CNT_DT... => Data Type
+CNT_S...  => Statement
+CNT_M...  => Miscellanious
 */
-typedef enum
-{
+typedef enum {
   CNT_LABEL,  /* Alphabetic characters only (TT_NS_ID) */
   CNT_ALNUM,  /* Alphanumeric characters (TT_NS_ALNUM)*/
   CNT_NUMBER, /* Numbers (TT_NS_ALNUM) */
 
+  /* Data Types */
+  /* NOTE
+  These datatype types must point to the character span
+  in the CST Node struct.
+  */
+  CNT_DT_SHORT,
+  CNT_DT_LONG,
+
+  CNT_DT_SINGLE,
+  CNT_DT_DOUBLE,
+
+  CNT_DT_STRING,
+
   /* Statements */
   CNT_S_LABEL,
+
+  CNT_S_VAR_DEF,
+
   CNT_S_RUN,
 
   /* Miscellaneous */
@@ -119,7 +137,7 @@ following:
 CST_STATIC int cst_cnvec_push(cst_cnvec_t *restr cnvec, const cst_cstnode_t cn);
 
 /* This checks if a lexer token is of type `tt`. */
-CST_STATIC inline int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
+CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
                                       const size_t                     ltv_idx,
                                       const blexer_tokentype_t         tt);
 
@@ -139,12 +157,14 @@ This is not supposed to be reported as of the state right now
 since we don't have enough structure.
 
 This can return an error code which are what follows:
--2 - ltvec is NULL
--1 - cnvec is NULL
+... All preceeding are cst_cnvec_push() error codes.
+-3 - Failed to allocate
+-2 - cnvec is NULL
+-1 - ltvec is NULL
  0 = No issues
 */
 CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
-                          const cst_cnvec_t         *restr cnvec,
+                                cst_cnvec_t         *restr cnvec,
                           const size_t                     ltstart);
 
 /*
@@ -155,6 +175,14 @@ The returned value's .contents is always NULL. So you must check if
 the .type is not CNT_S_LABEL instead.
 */
 CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec);
+
+/*
+This function parses the expression /bm: current/
+*/
+CST_LIB cst_cstnode_t cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,
+                                         const size_t                     ltstart);
+
+CST_LIB void cst_cstnode_free(cst_cstnode_t *cn);
 
 #define cstnode_type_t cst_cstnode_type_t
 #define cstnode_t      cst_cstnode_t
@@ -167,11 +195,14 @@ CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec);
 #define parse_cst_line(lt, ltvec)        cst_parse_cst_line(lt, ltvec)
 #define error_cst(ltvec, cnvec, ltstart) cst_error_cst(ltvec, cnvec, ltstart)
 #define parse_label(ltvec)               cst_parse_label(ltvec)
+#deifne parse_expr_cst(ltvec, ltstart)   cst_parse_expr_cst(ltvec, ltstart)
+#define cstnode_free(cn)                 cst_cstnode_free(cn)
 
 /* --- IMPLEMENTATION --- */
 
 #define CST_IMPL
 #ifdef CST_IMPL
+#include <memory.h>
 
 #define CST_CNVEC_INITSZ 8
 
@@ -205,7 +236,7 @@ CST_STATIC int cst_cnvec_push(      cst_cnvec_t   *restr cnvec,
   return 0;
 }
 
-CST_STATIC inline int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
+CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
                                       const size_t                     ltv_idx,
                                       const blexer_tokentype_t         tt)
 {
@@ -245,17 +276,28 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
   case TT_NS_ID:
     cur_idx++;
+  {
+    cst_cstnode_type_t ctype;
     switch (ltvec->ltok_ptr[cur_idx].type)
     {
-    case TT_AMPERSAND:
-      /* Fallthrough*/
-    case TT_EXCL_MARK:
-      /* Fallthrough */
-    case TT_DOLLAR:
-      /* Fallthrough */
-    case TT_POUND:
-      /* Fallthrough */
     case TT_PERCENT:
+      ctype = CNT_DT_SHORT;
+      break;
+
+    case TT_AMPERSAND:
+      ctype = CNT_DT_LONG;
+      break;
+
+    case TT_EXCL:
+      ctype = CNT_DT_SINGLE;
+      break;
+
+    case TT_POUND:
+      ctype = CNT_DT_DOUBLE;
+      break;
+
+    case TT_DOLLAR:
+      ctype = CNT_DT_STRING;
       break;
 
     default:
@@ -267,8 +309,8 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     cur_idx++;
     if (cst_expect_ltok(ltvec, cur_idx, TT_SPACE)) goto Error;
     cur_idx++;
-    /* TODO: Make the Variable definition node */
-    /* Parse Expression*/
+    cst_cstnode_t expr = cst_parse_expr_cst(ltvec, cur_idx);
+  }
     break;
 
   case TT_KW_RUN:
@@ -292,7 +334,7 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
       .span = ss,
       .contents = NULL, /* TODO: Replace this with expression */
     };
-    cst_cnvec_push(cn);
+    cst_cnvec_push(cnvec, cn);
   }
 
     if (!/* TODO: Consume comment token */0)
@@ -640,24 +682,6 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
   default:
     break;
   }
-}
-
-CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
-                          const cst_cnvec_t        *restr cnvec,
-                          const size_t					  ltstart)
-{
-  cst_cstnode_t cn = (cst_cstnode_t) {
-    .type = CNT_M_ERR,
-    .span = ltvec->ltok_ptr[ltstart].span,
-    .contents = NULL,
-  };
-  
-  for (size_t i = ltstart; i < ltvec->len; i++)
-  {
-    // ...
-    cn.contents = (cst_cstnode_t) {
-    };
-  }
 
 Exit:
   return 0;
@@ -679,6 +703,39 @@ Error:
   }
 
   goto Exit;
+
+}
+
+CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
+                                cst_cnvec_t         *restr cnvec,
+                          const size_t					  ltstart)
+{
+  if (!ltvec) return -1;
+  if (!cnvec) return -2;
+  cst_cstnode_t cn = (cst_cstnode_t) {
+    .type = CNT_M_ERR,
+    .span = ltvec->ltok_ptr[ltstart].span,
+    .contents = NULL,
+  };
+
+  for (size_t i = ltstart + 1; i < ltvec->len; i++)
+  {
+    cn.contents = malloc(sizeof(*cn.contents));
+    if (!cn.contents) return -3;
+
+    cst_cstnode_t t = (cst_cstnode_t) {
+      .type = CNT_M_ERR,
+      .span = ltvec->ltok_ptr[i].span
+    };
+    memcpy(cn.contents, &t, sizeof(t));
+
+    int rval = cst_cnvec_push(cnvec, cn);
+    if (rval != 0) return rval - 3;
+
+    cn = *cn.contents;
+  }
+
+  return 0;
 }
 
 CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec)
@@ -711,7 +768,14 @@ CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec)
   };
 }
 
-#define CST_FREEARR_INITSZ 8
+CST_LIB cst_cstnode_t cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,
+                                         const size_t                     ltstart)
+{
+  CST_ASSERT(ltvec, "ltvec is NULL in cst_parse_expr_cst().");
+  CST_ASSERT(ltvec->len <= ltstart, "ltstart is out of bounds in ltvec. (cst_parse_expr_cst())");
+
+  /* TODO */
+}
 
 CST_LIB void cst_cstnode_free(cst_cstnode_t *cn)
 {
