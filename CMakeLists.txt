@@ -28,18 +28,20 @@ target_sources(
   ${CMAKE_CURRENT_SOURCE_DIR}/include/basiic.h
 
   PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/macros.h
   ${CMAKE_CURRENT_SOURCE_DIR}/include/lexer/spans.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/lexer/lexer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/lexer/blexer.h
 
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/parser/bparser.h
   ${CMAKE_CURRENT_SOURCE_DIR}/include/parser/cst.h
   ${CMAKE_CURRENT_SOURCE_DIR}/include/parser/ast.h
 
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/sem-analyzer/analyzer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/sem-analyzer/banalyzer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/include/sem-analyzer/linter.h
 
   ${CMAKE_CURRENT_SOURCE_DIR}/include/runtime/stack.h
   ${CMAKE_CURRENT_SOURCE_DIR}/include/runtime/interp.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/runtime/runtime.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/runtime/bruntime.h
 )
 
 target_include_directories(
