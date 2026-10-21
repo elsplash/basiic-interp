@@ -58,9 +58,9 @@ This is the type of a CST Node.
 Which are labelled accordingly:
 CNT => CST Node Type
 
-CNT_DT... => Data Type
-CNT_S...  => Statement
-CNT_M...  => Miscellanious
+CNT_V... => Variable
+CNT_S... => Statement
+CNT_M... => Miscellanious
 */
 typedef enum {
   CNT_LABEL,  /* Alphabetic characters only (TT_NS_ID) */
@@ -72,13 +72,15 @@ typedef enum {
   These datatype types must point to the character span
   in the CST Node struct.
   */
-  CNT_DT_SHORT,
-  CNT_DT_LONG,
+  CNT_V_SHORT,
+  CNT_V_LONG,
 
-  CNT_DT_SINGLE,
-  CNT_DT_DOUBLE,
+  CNT_V_SINGLE,
+  CNT_V_DOUBLE,
 
-  CNT_DT_STRING,
+  CNT_V_STRING,
+
+  CNT_V_IMPLICIT,
 
   /* Statements */
   CNT_S_LABEL,
@@ -195,7 +197,7 @@ CST_LIB void cst_cstnode_free(cst_cstnode_t *cn);
 #define parse_cst_line(lt, ltvec)        cst_parse_cst_line(lt, ltvec)
 #define error_cst(ltvec, cnvec, ltstart) cst_error_cst(ltvec, cnvec, ltstart)
 #define parse_label(ltvec)               cst_parse_label(ltvec)
-#deifne parse_expr_cst(ltvec, ltstart)   cst_parse_expr_cst(ltvec, ltstart)
+#define parse_expr_cst(ltvec, ltstart)   cst_parse_expr_cst(ltvec, ltstart)
 #define cstnode_free(cn)                 cst_cstnode_free(cn)
 
 /* --- IMPLEMENTATION --- */
@@ -237,8 +239,8 @@ CST_STATIC int cst_cnvec_push(      cst_cnvec_t   *restr cnvec,
 }
 
 CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
-                                      const size_t                     ltv_idx,
-                                      const blexer_tokentype_t         tt)
+                               const size_t                     ltv_idx,
+                               const blexer_tokentype_t         tt)
 {
   CST_ASSERT(ltv_idx < ltvec->len, "Attempt to index out of bounds in cst_expect_ltok().");
   CST_ASSERT(ltvec, "Attempt to index ltvec, which is NULL in cst_expect_ltok().");
@@ -281,23 +283,23 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     switch (ltvec->ltok_ptr[cur_idx].type)
     {
     case TT_PERCENT:
-      ctype = CNT_DT_SHORT;
+      ctype = CNT_V_SHORT;
       break;
 
     case TT_AMPERSAND:
-      ctype = CNT_DT_LONG;
+      ctype = CNT_V_LONG;
       break;
 
     case TT_EXCL:
-      ctype = CNT_DT_SINGLE;
+      ctype = CNT_V_SINGLE;
       break;
 
     case TT_POUND:
-      ctype = CNT_DT_DOUBLE;
+      ctype = CNT_V_DOUBLE;
       break;
 
     case TT_DOLLAR:
-      ctype = CNT_DT_STRING;
+      ctype = CNT_V_STRING;
       break;
 
     default:
@@ -322,17 +324,21 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
     cur_idx++;
 
-    if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_STRING) ||
+    if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_STRING) &&
         !cst_expect_ltok(ltvec, cur_idx, TT_NS_NUM))
       goto Error;
     ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
-    /* TODO: Parse expression function */
+
+    const cst_cstnode_t expr = cst_parse_expr_cst(ltvec, cur_idx);
+    cst_cstnode_t *alloc_expr = malloc(sizeof(*alloc_expr));
+    memcpy(alloc_expr, &expr, sizeof(expr));
+
     cur_idx++;
 
     cst_cstnode_t cn = (cst_cstnode_t) {
       .type = CNT_S_RUN,
       .span = ss,
-      .contents = NULL, /* TODO: Replace this with expression */
+      .contents = alloc_expr,
     };
     cst_cnvec_push(cnvec, cn);
   }
@@ -708,7 +714,7 @@ Error:
 
 CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
                                 cst_cnvec_t         *restr cnvec,
-                          const size_t					  ltstart)
+                          const size_t                    ltstart)
 {
   if (!ltvec) return -1;
   if (!cnvec) return -2;
@@ -774,7 +780,113 @@ CST_LIB cst_cstnode_t cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,
   CST_ASSERT(ltvec, "ltvec is NULL in cst_parse_expr_cst().");
   CST_ASSERT(ltvec->len <= ltstart, "ltstart is out of bounds in ltvec. (cst_parse_expr_cst())");
 
-  /* TODO */
+  const blexer_lextoken_t ltok = ltvec->ltok_ptr[ltstart];
+
+  switch (ltok.type)
+  {
+  case TT_NS_ALNUM:
+    /* Fallthrough */
+  case TT_NS_ID:
+  {
+    cst_cstnode_type_t cnt;
+
+    switch (ltok.span.str.__s[ltok.span.str.len - 1])
+    {
+    case '!':
+      cnt = CNT_V_SHORT;
+      break;
+
+    case '&':
+      cnt = CNT_V_LONG;
+      break;
+
+    case '#':
+      cnt = CNT_V_SINGLE;
+      break;
+
+    case '%':
+      cnt = CNT_V_DOUBLE;
+      break;
+
+    case '$':
+      cnt = CNT_V_STRING;
+      break;
+
+    default:
+      cnt = CNT_V_IMPLICIT;
+      break;
+    }
+    return (cst_cstnode_t) {
+      .type     = cnt,
+      .span     = ltok.span,
+      .contents = NULL,
+    };
+  }
+
+  case TT_NS_STRING:
+    return (cst_cstnode_t) {
+      .type = CNT_V_STRING,
+      .span = ltok.span,
+      .contents = NULL
+    };
+
+  case TT_NS_NUM:
+  {
+    cst_cstnode_type_t cnt = CNT_V_LONG;
+    int dots = 0;
+
+    for (size_t i = 0; i < ltok.span.len; i++)
+    {
+      if (ltok.span.str.__s[i] == '.') dots++;
+    }
+
+    if (dots == 1)
+      cnt = CNT_V_DOUBLE;
+    else if (dots > 1)
+    {
+      cst_cstnode_t cn = (cst_cstnode_t) {
+        .type = CNT_M_ERR,
+        .span = ltok.span,
+      };
+      cn.contents = malloc(sizeof(*cn.contents));
+      const cst_cstnode_t temp = (cst_cstnode_t) {
+        .type = CNT_V_DOUBLE,
+        .span = ltok.span,
+        .contents = NULL
+      };
+      memcpy(cn.contents, &temp, sizeof(temp));
+      return cn;
+    }
+
+    return (cst_cstnode_t) {
+      .type = cnt,
+      .span = ltok.span,
+      .contents = NULL
+    };
+  }
+
+  default:
+    break;
+  }
+
+  /* Return invalid CST Node to return */
+  return (cst_cstnode_t) {
+    .type     = CNT_S_LABEL,
+    .span     = ltok.span,
+    .contents = NULL,
+  };
+}
+
+CST_LIB int cst_consume_cst_comments(const blexer_lextok_vec_t *restr ltvec,
+                                           size_t                     ltstart)
+{
+  if (cst_expect_ltok(ltvec, ltstart, TT_SPACE))
+    ltstart++;
+  if (!cst_expect_ltok(ltvec, ltstart, TT_SING_QUOT))
+  {
+    // ...
+  }
+  return 0;
 }
 
 CST_LIB void cst_cstnode_free(cst_cstnode_t *cn)
