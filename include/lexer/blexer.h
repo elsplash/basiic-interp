@@ -23,6 +23,9 @@ This is so we know which struct/enum/function is from where.
 #define SPANS_IMPL
 #endif
 
+#include "macros.h"
+#include "spans.h"
+
 #ifndef BLEXER_LIB
 #define BLEXER_LIB extern
 #endif
@@ -45,8 +48,6 @@ do {                         \
   exit(1);                   \
 } while (0)
 #endif
-
-#include "spans.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -978,13 +979,10 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 	if (start == -1) start = i;
 	len++;
 
-	if (isalpha(c))
+	if (isalpha(c) && stat != LEXST_NUM)
 	{
 	  switch (stat)
 	  {
-	  case LEXST_NUM:
-		stat = LEXST_ALNUM;
-		/* Fallthrough*/
 	  case LEXST_ALNUM:
 		/* Fallthrough */
 	  case LEXST_ID:
@@ -1037,6 +1035,27 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 
     if (len > 1)
 	{
+      if (stat == LEXST_ID || LEXST_ALNUM)
+      {
+        switch (l->str.__s[i + 1])
+        {
+        case '!':
+          /* Fallthrough */
+        case '&':
+          /* Fallthrough */
+        case '%':
+          /* Fallthrough */
+        case '#':
+          /* Fallthrough */
+        case '$':
+          i++;
+          len++;
+          break;
+
+        default:
+          break;
+        }
+      }
 	  blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
 	  len   = 1;
 	  start = i;

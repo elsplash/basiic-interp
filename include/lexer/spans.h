@@ -18,56 +18,8 @@ Licensed under the GNU General Public License V3.
 #ifndef SPANS_DEF
 #define SPANS_DEF
 
+#include "macros.h"
 #include <stdlib.h>
-
-#ifndef restr
-
-#if   defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-    #define restr restrict
-#elif defined(_MSC_VER) && _MSC_VER >= 1400
-    #define restr __restrict
-#elif defined(__GNUC__) || defined(__clang__)
-    #define restr __restrict__
-#else
-    #define restr
-#endif
-
-#endif /* restr */
-
-/* glob_extern
-This macro expands to make it so it outputs the function correctly.
-*/
-#ifndef glob_extern
-
-#ifdef _WIN32
-#define glob_extern __declspec(dllexport)
-
-#elif defined(__GNUC__) && __GNUC__ > 4
-#define  glob_extern __attribute__((visibility("default")))
-
-#else
-#define glob_extern extern
-
-#endif
-
-#endif
-
-/* glob_static
-This macro expands so it makes static functions properly.
-*/
-#ifndef glob_static
-
-#ifdef _WIN32
-#define glob_static __decl_spec(dllimport)
-
-#elif defined(__GNUC__) && __GNUC__ > 4
-#define glob_static __attribute__((visibility("hidden")))
-
-#else
-#define glob_static static
-
-#endif
-#endif
 
 #ifndef SPANS_STR_LIB
 #define SPANS_STR_LIB glob_extern
