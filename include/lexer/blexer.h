@@ -43,9 +43,10 @@ This is so we know which struct/enum/function is from where.
 
 #ifndef BLEXER_PANIC
 #define BLEXER_PANIC(message) \
-do {                         \
-  puts(message);             \
-  exit(1);                   \
+do {                          \
+  puts("BLEXER PANIC!");      \
+  puts(message);              \
+  exit(1);                    \
 } while (0)
 #endif
 
