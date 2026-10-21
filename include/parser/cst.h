@@ -32,6 +32,7 @@ Licensed under the GNU General Public License V3.
 #include <stdlib.h>
 #define CST_PANIC(message) \
 do {                       \
+  puts("CST PANIC!");      \
   puts(message);           \
   exit(1);                 \
 } while (0)
@@ -144,6 +145,21 @@ CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
                                       const blexer_tokentype_t         tt);
 
 /*
+This function pushes a CST Node to the cn's contents
+
+This function assumes that push is heap allocated so it may
+survive for the cn's duration, and it will be freed by
+cst_cstnode_free().
+
+There are error codes:
+-2 - push is NULL.
+-1 - cn is NULL.
+ 0 - No issues.
+*/
+CST_STATIC int cst_cstnode_push_contents(cst_cstnode_t *restr cn,
+                                         cst_cstnode_t *restr push);
+
+/*
 The interface function you may call if you want all the tokens
 to be parsed.
 
@@ -179,7 +195,8 @@ the .type is not CNT_S_LABEL instead.
 CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec);
 
 /*
-This function parses the expression /bm: current/
+This function parses the expression for the CST to fetch and put on
+a node's contents
 */
 CST_LIB cst_cstnode_t cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,
                                          const size_t                     ltstart);
@@ -193,6 +210,7 @@ CST_LIB void cst_cstnode_free(cst_cstnode_t *cn);
 #define cnvec_creat()                   cst_cnvec_creat()
 #define cnvec_push(cnvec, cn)           cst_cnvec_push(cnvec, cn)
 #define expect_ltok(ltvec, ltstart, tt) cst_expect_ltok(ltvec, ltstart, tt)
+#define cstnode_push_contents(cn, push) cst_cstnode_push_contents(cn, push)
 
 #define parse_cst_line(lt, ltvec)        cst_parse_cst_line(lt, ltvec)
 #define error_cst(ltvec, cnvec, ltstart) cst_error_cst(ltvec, cnvec, ltstart)
@@ -246,6 +264,23 @@ CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
   CST_ASSERT(ltvec, "Attempt to index ltvec, which is NULL in cst_expect_ltok().");
 
   return ltvec->ltok_ptr[ltv_idx].type == tt;
+}
+
+CST_STATIC int cst_cstnode_push_contents(cst_cstnode_t *restr cn,
+                                         cst_cstnode_t *restr push)
+{
+  if (!cn)   return -1;
+  if (!push) return -2;
+
+  cst_cstnode_t *ptr = cn;
+
+  while (ptr->contents) {
+    ptr = ptr->contents;
+  }
+
+  ptr->contents = push;
+
+  return 0;
 }
 
 CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
