@@ -14,12 +14,14 @@ BASIIC interpreter goes through.
 
 /* Define these regardless even if they are already defined. */
 #ifdef BASIIC_IMPL
+#define SPANS_IMPL
 #define BLEXER_IMPL
 #define BPARSER_IMPL
 #define BANALYZER_IMPL
 #define BRUNTIME_IMPL
 #endif
 
+#include "lexer/spans.h"
 #include "lexer/blexer.h"
 #include "parser/bparser.h"
 #include "sem-analyzer/banalyzer.h"
