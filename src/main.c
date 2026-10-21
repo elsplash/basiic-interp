@@ -13,10 +13,15 @@ for your safety.
 Licensed under the GNU General Public License V3.
 */
 
-#define BASIIC_CSHELL_VER "v26.01_alpha"
+#define BASIIC_IMPL
+#include <basiic.h>
+
+#define BASIIC_CSHELL_VER "v0.0.1_alpha build 10212026"
+#define BASIIC_CSHELL_BUFFER_SZ 128
 
 int main(const int argc, const char **argv)
 {
+  char buffer[BASIIC_CSHELL_BUFFER_SZ];
   puts("BASIIC CShell\n"
        "A simple qBasic emulator\n\n"
 
@@ -24,10 +29,19 @@ int main(const int argc, const char **argv)
 
        "You may enter `HELP` for a basic guide.\n\n");
 
+  spans_ls_table_t lt = spans_ls_table_creat();
+
   while (1)
   {
+    puts("READY.\n\n");
     printf("> ");
-    fgets(buffer, stdin, 32);
+    fgets(buffer, BASIIC_CSHELL_BUFFER_SZ, stdin);
+    spans_linespan_t ls = spans_ls_init(buffer, NULL, lt.len);
+    spans_ls_table_push(&lt, ls);
+
+    // ...
   }
+
+  spans_ls_table_free(&lt);
   return 0;
 }
