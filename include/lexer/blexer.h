@@ -362,8 +362,8 @@ our lexer tokens to be stored in.
 typedef struct
 {
   blexer_lextoken_t * ltok_ptr;
-  unsigned int       len;
-  unsigned int       cap;
+  size_t              len;
+  size_t              cap;
 }
 blexer_lextok_vec_t;
 
