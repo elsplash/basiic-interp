@@ -61,6 +61,7 @@ CNT => CST Node Type
 
 CNT_V... => Variable
 CNT_S... => Statement
+CNT_P... => Parenthesis
 CNT_M... => Miscellanious
 */
 typedef enum {
@@ -90,9 +91,14 @@ typedef enum {
 
   CNT_S_RUN,
 
+  /* Parenthesis */
+  CNT_P_PAREN,
+  CNT_P_L_PAREN,
+  CNT_P_COMMA,
+  CNT_P_R_PAREN,
+
   /* Miscellaneous */
   CNT_M_APOST_COMMENT,
-  CNT_M_PAREN,
 
   CNT_M_ERR,
 }
@@ -194,7 +200,7 @@ CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec);
 Consumes the remaining comments 
 */
 CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
-									      cst_cnvec_t         *restr cnvec,
+                                          cst_cnvec_t         *restr cnvec,
                                           size_t              *restr ltstart);
 
 /*
@@ -348,39 +354,39 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
     if (cst_expect_ltok(ltvec, cur_idx, TT_SPACE))
       goto Error;
-	spans_ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
+    spans_ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
     cur_idx++;
 
     if (cst_expect_ltok(ltvec, cur_idx, TT_EQUAL))
       goto Error;
-	spans_ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
+    spans_ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
     cur_idx++;
 
     if (cst_expect_ltok(ltvec, cur_idx, TT_SPACE))
       goto Error;
-	spans_ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
+    spans_ss_concat(&ss, &ltvec->ltok_ptr[cur_idx].span);
     cur_idx++;
 
     cst_cstnode_t expr = cst_parse_expr_cst(ltvec, &cur_idx);
-	spans_ss_concat(&ss, &expr.span);
+    spans_ss_concat(&ss, &expr.span);
 
     cst_cstnode_t cn = (cst_cstnode_t) {
-	  .type     = ctype,
-	  .span     = ss,
-	  .contents = NULL,
+      .type     = ctype,
+      .span     = ss,
+      .contents = NULL,
     };
 
     cst_cstnode_push_contents(&cn, &expr);
     cst_cnvec_push(cnvec, cn);
 
     if (!cst_consume_cst_comment(ltvec, cnvec, &cur_idx)) {
-	  cst_cstnode_free(&cn);
-	  cst_cstnode_free(&expr);
+      cst_cstnode_free(&cn);
+      cst_cstnode_free(&expr);
 
-	  cur_idx -= 3;
+      cur_idx -= 3;
 
       goto Error;
-	}
+    }
 
     return cnvec;
   }
@@ -400,8 +406,8 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     cst_cstnode_t *alloc_expr = malloc(sizeof(*alloc_expr));
     if (!alloc_expr)
     {
-	  cst_cstnode_free(&expr);
-	  goto Error;
+      cst_cstnode_free(&expr);
+      goto Error;
     }
 
     memcpy(alloc_expr, &expr, sizeof(expr));
@@ -424,14 +430,14 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
   case TT_KW_CALL:
     if (!cst_expect_ltok(ltvec, cur_idx, TT_SPACE))
-	  goto Error;
-	cur_idx++;
+      goto Error;
+    cur_idx++;
     if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_ALNUM) ||
         !cst_expect_ltok(ltvec, cur_idx, TT_NS_ID))
       goto Error;
-	cur_idx++;
+    cur_idx++;
 
-	/* TODO: Implement a parenthesis parser */
+    /* TODO: Implement a parenthesis parser */
 
     if (!cst_consume_cst_comment(ltvec, cnvec, &cur_idx))
       goto Error;
@@ -440,12 +446,12 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
   case TT_KW_CHAIN:
     if (!cst_expect_ltok(ltvec, cur_idx, TT_SPACE))
-	  goto Error;
-	cur_idx++;
+      goto Error;
+    cur_idx++;
 
-	if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_STRING))
-	  goto Error;
-	cur_idx++;
+    if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_STRING))
+      goto Error;
+    cur_idx++;
 
     /* ... */
 
@@ -802,10 +808,10 @@ Error:
 }
 
 CST_LIB cst_cstnode_t cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
-                                    const size_t                    ltstart)
+                                    const size_t                     ltstart)
 {
   CST_ASSERT(ltvec, "ltvec is NULL in cst_error_cst()");
-  CST_ASSERT(ltbvec, "cnvec is NULL in cst_error_cst()");
+  CST_ASSERT(ltvec, "cnvec is NULL in cst_error_cst()");
 
   cst_cstnode_t cn = (cst_cstnode_t) {
     .type = CNT_M_ERR,
@@ -849,35 +855,71 @@ CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec)
   };
 }
 
-CST_LIB cst_cstnode_t cst_parse_paren(const blexer_lextok_vec_t *restr ltvec,
-                                            size_t              *restr ltstart)
+CST_LIB cst_cstnode_t cst_parse_paren_cst(const blexer_lextok_vec_t *restr ltvec,
+                                                size_t              *restr ltstart)
 {
   CST_ASSERT(ltvec, "ltvec is NULL in cst_parse_paren().");
   CST_ASSERT(ltstart, "ltstart is NULL in cst_parse_paren().");
   if (!cst_expect_ltok(ltvec, *ltstart, TT_R_PAREN))
-	return cst_error_cst(ltvec, *ltstart);
+    return cst_error_cst(ltvec, *ltstart);
 
   const size_t og_ltstart = *ltstart;
-  int is_fetch_comma = 0;
 
   cst_cstnode_t cn = (cst_cstnode_t) {
-	.type = CNT_M_PAREN,
-	.span = ltvec->ltok_ptr[*ltstart].span,
-	.contents = NULL,
+    .type     = CNT_P_PAREN,
+    .span     = ltvec->ltok_ptr[*ltstart].span,
+    .contents = NULL,
   };
-
-  for (size_t i = *ltstart; i < ltvec->len; i++)
+  
+  /* Push the left side Parenthesis */
   {
-    /* TODO: Make loop */
+    cst_cstnode_t lparen = (cst_cstnode_t) {
+      .type     = CNT_P_L_PAREN,
+      .span     = ltvec->ltok_ptr[*ltstart].span,
+      .contents = NULL,
+    };
+    cst_cstnode_push_contents(&cn, &lparen);
   }
+
+  for (size_t *i = ltstart + 1; *i < ltvec->len; (*i)++)
+  {
+    if (cst_expect_ltok(ltvec, *i, TT_SPACE))
+      (*i)++;
+
+    if (cst_expect_ltok(ltvec, *i, TT_R_PAREN)) {
+      cst_cstnode_t rparen = (cst_cstnode_t) {
+        .type     = CNT_P_R_PAREN,
+        .span     = ltvec->ltok_ptr[*i].span,
+        .contents = NULL,
+      };
+      cst_cstnode_push_contents(&cn, &rparen);
+      break;
+    }
+
+    if (cst_expect_ltok(ltvec, *i, TT_COMMA))
+    {
+      cst_cstnode_t comma = (cst_cstnode_t) {
+        .type     = CNT_P_COMMA,
+        .span     = ltvec->ltok_ptr[*i].span,
+        .contents = NULL,
+      };
+      cst_cstnode_push_contents(&cn, &comma);
+      continue;
+    }
+
+    cst_cstnode_t expr = cst_parse_expr_cst(ltvec, i);
+    cst_cstnode_push_contents(&cn, &expr);
+  }
+
+  return cn;
 
 Error:
   cst_cstnode_free(&cn);
   return cst_error_cst(ltvec, og_ltstart);
 }
 
-CST_LIB cst_cstnode_t cst_parse_bin_op(const blexer_lextok_vec_t *restr ltvec,
-                                       const size_t              *restr ltstart)
+CST_LIB cst_cstnode_t cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
+                                           const size_t              *restr ltstart)
 {
   /* TODO */
 }
@@ -993,21 +1035,21 @@ CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
     (*ltstart)++;
   if (!cst_expect_ltok(ltvec, *ltstart, TT_SING_QUOT))
   {
-	cst_cnvec_push(cnvec, cst_error_cst(ltvec, *ltstart));
-	return 1;
+    cst_cnvec_push(cnvec, cst_error_cst(ltvec, *ltstart));
+    return 1;
   }
   (*ltstart)++;
 
   cst_cstnode_t comment = (cst_cstnode_t) {
     .type     = CNT_M_APOST_COMMENT,
-	.span     = ltvec->ltok_ptr[*ltstart].span,
-	.contents = NULL,
+    .span     = ltvec->ltok_ptr[*ltstart].span,
+    .contents = NULL,
   };
 
   while (*ltstart < ltvec->len)
   {
-	spans_ss_concat(&comment.span, &ltvec->ltok_ptr[*ltstart].span);
-	(*ltstart)++;
+    spans_ss_concat(&comment.span, &ltvec->ltok_ptr[*ltstart].span);
+    (*ltstart)++;
   }
 
   cst_cnvec_push(cnvec, comment);
