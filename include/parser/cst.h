@@ -176,16 +176,10 @@ This function will be caled if the parsed line is invalid.
 This is not supposed to be reported as of the state right now
 since we don't have enough structure.
 
-This can return an error code which are what follows:
-... All preceeding are cst_cnvec_push() error codes.
--3 - Failed to allocate
--2 - cnvec is NULL
--1 - ltvec is NULL
- 0 = No issues
+This has asserts so it may exit prematurely here.
 */
-CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
-                                cst_cnvec_t         *restr cnvec,
-                          const size_t                     ltstart);
+CST_LIB cst_cstnode_t cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
+                                    const size_t                     ltstart);
 
 /*
 This function parses the first possible token that could be a label.
@@ -221,11 +215,11 @@ CST_LIB void cst_cstnode_free(cst_cstnode_t *cn);
 #define expect_ltok(ltvec, ltstart, tt) cst_expect_ltok(ltvec, ltstart, tt)
 #define cstnode_push_contents(cn, push) cst_cstnode_push_contents(cn, push)
 
-#define parse_cst_line(lt, ltvec)        cst_parse_cst_line(lt, ltvec)
-#define error_cst(ltvec, cnvec, ltstart) cst_error_cst(ltvec, cnvec, ltstart)
-#define parse_label(ltvec)               cst_parse_label(ltvec)
-#define parse_expr_cst(ltvec, ltstart)   cst_parse_expr_cst(ltvec, ltstart)
-#define cstnode_free(cn)                 cst_cstnode_free(cn)
+#define parse_cst_line(lt, ltvec)      cst_parse_cst_line(lt, ltvec)
+#define error_cst(ltvec, ltstart)      cst_error_cst(ltvec, ltstart)
+#define parse_label(ltvec)             cst_parse_label(ltvec)
+#define parse_expr_cst(ltvec, ltstart) cst_parse_expr_cst(ltvec, ltstart)
+#define cstnode_free(cn)               cst_cstnode_free(cn)
 
 /* --- IMPLEMENTATION --- */
 
@@ -802,31 +796,17 @@ Exit:
 Error:
   spans_ss_free(&ss);
 
-  switch (cst_error_cst(ltvec, cnvec, cur_idx))
-  {
-  case -2:
-    CST_PANIC("CST Error fetch: cnvec is NULL. Aborting...");
-
-  case -1:
-    CST_PANIC("CST Error fetch: ltvec is NULL. Aborting...");
-
-  case 0:
-    break;
-
-  default:
-    CST_PANIC("CST Error fetch: switch case not updated (1)");
-  }
+  cst_cnvec_push(cnvec, cst_error_cst(ltvec, cur_idx));
 
   goto Exit;
-
 }
 
-CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
-                                cst_cnvec_t         *restr cnvec,
-                          const size_t                    ltstart)
+CST_LIB cst_cstnode_t cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
+                                    const size_t                    ltstart)
 {
-  if (!ltvec) return -1;
-  if (!cnvec) return -2;
+  CST_ASSERT(ltvec, "ltvec is NULL in cst_error_cst()");
+  CST_ASSERT(ltbvec, "cnvec is NULL in cst_error_cst()");
+
   cst_cstnode_t cn = (cst_cstnode_t) {
     .type = CNT_M_ERR,
     .span = ltvec->ltok_ptr[ltstart].span,
@@ -834,23 +814,9 @@ CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
   };
 
   for (size_t i = ltstart + 1; i < ltvec->len; i++)
-  {
-    cn.contents = malloc(sizeof(*cn.contents));
-    if (!cn.contents) return -3;
+    spans_ss_concat(&cn.span, &ltvec->ltok_ptr[i].span);
 
-    cst_cstnode_t t = (cst_cstnode_t) {
-      .type = CNT_M_ERR,
-      .span = ltvec->ltok_ptr[i].span
-    };
-    memcpy(cn.contents, &t, sizeof(t));
-
-    int rval = cst_cnvec_push(cnvec, cn);
-    if (rval != 0) return rval - 3;
-
-    cn = *cn.contents;
-  }
-
-  return 0;
+  return cn;
 }
 
 CST_LIB cst_cstnode_t cst_parse_label(const blexer_lextok_vec_t *restr ltvec)
@@ -889,17 +855,25 @@ CST_LIB cst_cstnode_t cst_parse_paren(const blexer_lextok_vec_t *restr ltvec,
   CST_ASSERT(ltvec, "ltvec is NULL in cst_parse_paren().");
   CST_ASSERT(ltstart, "ltstart is NULL in cst_parse_paren().");
   if (!cst_expect_ltok(ltvec, *ltstart, TT_R_PAREN))
-  {
-	/* TODO: Make cst_error_cst() return a CST Node instead of pushing to cnvec. */
-	// cst_error_cst();
-  }
+	return cst_error_cst(ltvec, *ltstart);
+
+  const size_t og_ltstart = *ltstart;
+  int is_fetch_comma = 0;
+
   cst_cstnode_t cn = (cst_cstnode_t) {
 	.type = CNT_M_PAREN,
 	.span = ltvec->ltok_ptr[*ltstart].span,
 	.contents = NULL,
   };
 
-  /* TODO: Make loop. */
+  for (size_t i = *ltstart; i < ltvec->len; i++)
+  {
+    /* TODO: Make loop */
+  }
+
+Error:
+  cst_cstnode_free(&cn);
+  return cst_error_cst(ltvec, og_ltstart);
 }
 
 CST_LIB cst_cstnode_t cst_parse_bin_op(const blexer_lextok_vec_t *restr ltvec,
@@ -1019,7 +993,7 @@ CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
     (*ltstart)++;
   if (!cst_expect_ltok(ltvec, *ltstart, TT_SING_QUOT))
   {
-	cst_error_cst(ltvec, cnvec, *ltstart);
+	cst_cnvec_push(cnvec, cst_error_cst(ltvec, *ltstart));
 	return 1;
   }
   (*ltstart)++;
