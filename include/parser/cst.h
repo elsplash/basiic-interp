@@ -100,6 +100,8 @@ typedef enum {
   /* Miscellaneous */
   CNT_M_APOST_COMMENT,
 
+  CNT_M_BIN_OP,
+
   CNT_M_ERR,
 }
 cst_cstnode_type_t;
@@ -919,9 +921,17 @@ Error:
 }
 
 CST_LIB cst_cstnode_t cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
-                                           const size_t              *restr ltstart)
+                                                 size_t              *restr ltstart)
 {
-  /* TODO */
+  cst_cstnode_t cn = (cst_cstnode_t) {
+    .type     = CNT_M_BIN_OP,
+    .span     = *ltstart,
+    .contents = NULL,
+  };
+
+  // ...
+
+  return;
 }
 
 CST_LIB cst_cstnode_t cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,

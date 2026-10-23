@@ -17,7 +17,13 @@ Licensed under the GNU General Public License V3.
 #endif
 #include "cst.h"
 
-/* ... */
+typedef enum {
+  ANT_LABEL,
+} ast_astnode_type_t;
+
+typedef struct ast_astnode_t {
+  spans_span_t span;
+} ast_astnode_t;
 
 /* --- IMPLEMENTATION --- */
 
