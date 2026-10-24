@@ -159,7 +159,7 @@ error codes are:
 -1 - s is NULL
 -2 - c is NULL
 */
-SPANS_STR_LIB int spans_str_equal_chr(const spans_str_t *restr s, const char *restr c);
+SPANS_STR_LIB int spans_str_equal_chrp(const spans_str_t *restr s, const char *restr c);
 
 /*
 Similar to spans_str_equal_chr(), but accepts a spans_str_t,
@@ -340,7 +340,7 @@ returns similar error codes to `spans_ls_equal()`.
 It's error codes are:
 -
 */
-SPANS_SS_LIB int spans_ss_equal_chr(const spans_strspan_t *restr ss, const char *restr c);
+SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr ss, const char *restr c);
 
 SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a , const spans_strspan_t *restr b);
 
@@ -371,7 +371,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 
 #define str_creat()          spans_str_creat()
 #define str_init(s)          spans_str_init(s)
-#define str_equal_chr(s, c)  spans_str_equal_chr(s, c)
+#define str_equal_chrp(s, c)  spans_str_equal_chrp(s, c)
 #define str_equal_str(a, b)  spans_str_equal_str(a, b)
 #define str_reserve(s, sz)   spans_str_reserve(s, sz)
 #define str_popr(s, sz)      spans_str_popr(s, sz)
@@ -395,7 +395,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define ls_table_fetch(lt, l_idx)         spans_ls_table_fetch(lt, l_idx)
 
 #define ss_init(lt, l_idx, start_clmn, len) spans_ss_init(lt, l_idx, start_clmn, len)
-#define ss_equal_chr(s, c)                  spans_ss_equal_chr(s, c)
+#define ss_equal_chrp(s, c)                 spans_ss_equal_chrp(s, c)
 #define ss_equal_ss(a, b)                   spans_ss_equal_ss(a, b)
 #define ss_concat(s1, s2)                   spans_ss_concat(s1, s2)
 #define ss_to(s)                            spans_ss_to(s)
@@ -451,7 +451,7 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
   };
 }
 
-SPANS_STR_LIB int spans_str_equal_chr(const spans_str_t *restr s, const char *restr c)
+SPANS_STR_LIB int spans_str_equal_chrp(const spans_str_t *restr s, const char *restr c)
 {
   if (!s) return -1;
   if (!c) return -2;
@@ -905,11 +905,11 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
   };
 }
 
-SPANS_SS_LIB int spans_ss_equal_chr(const spans_strspan_t *restr s,
-									const char            *restr c)
+SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr s,
+									 const char            *restr c)
 {
   if (!s) return -1;
-  const int rval = spans_str_equal_chr(&s->str, c);
+  const int rval = spans_str_equal_chrp(&s->str, c);
   if (rval < 0)
 	return rval - 1;
   return rval;
