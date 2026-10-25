@@ -2,9 +2,142 @@
 COPYRIGHT (C) 2026 ELSPLASH (electrsplash@gmail.com)
 ----------------------------------------------------
 
-This header provides the functions for lexing a file, or line.
-The lexing process is aligned with BASIIC.
+This header provides the functions for lexing a file,
+or line. The lexing process is aligned with BASIIC.
 it's own.
+
+Table of Contents:
+
+1.x..x NON IMPLEMENTATION
+
+1.1..x MACROS
+
+1.1..1 BLEXER_LIB
+
+This macro defines the Library function of this
+header library. So if you must only use the
+static functions of this library, you may
+exclude yourself from this library's main
+functions, and define:
+
+`#define BLEXER_LIB static'
+
+1.1..2 BLEXER_STATIC
+
+This macro defines the static library function
+my library uses so that it can be read well.
+If you wish to use these functions as so, you
+may define:
+
+`#define BLEXER_STATIC extern'
+
+1.1..3 BLEXER_ASSERT
+
+This macro defines the asserts for the library,
+for your own development's sake of debugging.
+If you are finished with your product, or
+very SURE and CONFIDENT, that you have NO
+possible backdoor, or vulnerability using these
+functions. You may plea your inevitable demise
+by exempting this Macro:
+
+`#define BLEXER_ASSERT'
+
+Or if you have a special function to handle
+crashes, you may define it with that function
+via:
+
+`#define BLEXER_ASSERT(check, message) your_special_assert(check, message)'
+
+Note that the `check' and `message' are
+called into the Macro by this library, so your
+assert must follow that, or you may modify this
+code's assert calls as you wish.
+
+1.1..4 BLEXER_PANIC
+
+This function will make your program end
+prematurely from an unexpected modification
+or edge case, you may either report this
+bug or fix it yourself.
+
+Though I do not recommend you remove this
+macro, since the edge cases that catch such
+PANIC cases, does not save itself.
+
+If you must, you may disable it via:
+
+`#define BLEXER_PANIC'
+
+Else, if you want to replace it, you may do:
+
+`#define BLEXER_PANIC(message) my_special_panic(message)'
+
+Note that message must be included since
+it is called by this library that way,
+unless if you wish to change the PANIC
+calls.
+
+1.1..? NOTE
+
+The following sections will NOT go in-depth for
+the topics discussed as it is already commented
+if you go to their signatures.
+
+This shall only showcase how you may use
+such functions.
+
+1.2..x STRUCTS
+
+1.2..2 Token Type
+
+Defined as `blexer_tokentype_t'
+
+You may use this enum to identify what
+token type is a `blexer_lextoken_t' via
+
+`if (lt.type == LEXST_EQUAL) { ... }'
+
+1.2..3 Lexer Token
+
+Defined as `blexer_lextoken_t'
+
+These are used as containers to identify what
+section of a `spans_linespan_t` is in qBasic
+context.
+
+You may use the `spans_ss_equal_chrp()` function
+to compare the string span inside the lexer
+token to identifier what it is.
+
+As so:
+
+`if (spans_ss_equal_chrp(ltok.span, "PRINT")) { ... }'
+
+1.2..4 Lexer Token Vector
+
+This is a vector of the Lexer Token so we
+may use it for storing the lexer tokens.
+
+The functions that create and push Lexer
+Tokens to this vector are BLEXER_STATIC,
+so if you wish to use these functions
+go to 1.1..2.
+
+So you may access the contents via:
+
+`ltvec.ltok_ptr[i]'
+
+Assuming `i' is below `ltvec.len'
+
+1.2..5 Lexer State
+
+This enum is solely for this header library
+functions. I do not recomment using it.
+
+2.x FUNCTION IMPLEMENTATION
+
+2.1
 
 -------------------------------------------------
 Licensed under the GNU General Public License V3.
@@ -402,12 +535,12 @@ twice so it is coupled.
 This is supposed to be a helper function for blexer_tokenize_line,
 so I don't think you'd want this in the library anyway.
 */
-BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t    *restr l,
-                                           blexer_lextok_vec_t  *restr out,
-                                     const blexer_lexer_state_t        stat,
-                                     const size_t                     l_idx,
-                                     const size_t                     start,
-                                     const size_t                     len);
+BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t     *restr l,
+                                             blexer_lextok_vec_t  *restr out,
+                                       const blexer_lexer_state_t        stat,
+                                       const size_t                      l_idx,
+                                       const size_t                      start,
+                                       const size_t                      len);
 
 /*
 This is a function that frees the lexer token's strspan, for the

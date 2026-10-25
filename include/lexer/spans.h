@@ -9,7 +9,157 @@ This file also provides a primitive string datatype,
 which is supposed to abstract the dynamic string
 operations, though I don't recommned using this.
 
-There are also some important macros in here aswell.
+Table Of Contents:
+
+1. MACROS
+
+1.1 SPANS_XX_LIB
+
+These are all the macros similar to the SPANS_XX_LIB,
+these macros are `glob_extern` by default. Though if
+you want to replace it with some platform-specific
+attribute, you may replace it via:
+
+`#define SPANS_XX_LIB my_special_attr'
+
+NOTE: Replace the XX part of the library with the
+      sublibrary's name.
+
+1.5 SPANS_XX_STATIC
+
+Similar to 1.1..1, though it is mapped to `glob_static'.
+It makes functions only this library needs, that
+doesn't fit the purpose of this library.
+
+Also similar to 1.1..1. You may replace it to your
+platform specific attribute via:
+
+`#define SPANS_XX_STATIC my_special_attr'
+
+1.6 SPANS_ASSERT
+
+This macro defines the assert function to use for
+checking edge cases in your code. You may disable
+it via:
+
+`#define SPANS_ASSERT'
+
+This is here to make sure you don't make mistakes.
+If you wish to replace it instead it must
+follow the parameters `(check, message)'. Either
+the former, or you may modify the code as you
+intend:
+
+`#define SPANS_ASSERT(check, message) my_special_assert(check, message)'
+
+1.7 SPANS_PANIC
+
+This macro defines where the program should
+end prematurely anywhere, with a verbose message.
+This is for debugging of course, this has no
+difference to `SPANS_ASSERT', except we just need
+it to clear out some edge cases that a
+`SPANS_ASSERT' just cannot clear on it's own.
+
+You may replace it via:
+
+`#define SPANS_PANIC(message) my_special_panic(message)'
+
+I DO NOT RECOMMEND REMOVING IT ENTIRELY, as if
+it continues as usual, will lead to undefined behavior,
+since it doesn't recover after that.
+
+2. STRUCTS
+
+2.1.. spans_str_t
+
+2.1..1 GENERAL
+
+This struct is the main focus around these
+other spans structs. It is simply a dynamically heap
+allocated string, with functions.
+
+2.2..2 CREATION
+
+For creating strings without initializing them,
+you may use `spans_str_creat()'. like this
+
+spans_str_t string = spans_str_creat();
+
+Though if you need it to be initialized beforehand,
+you may use `spans_str_init(chr)' via:
+
+cosnt char *primitive = "Hello World!";
+spans_str_t string = spans_str_init(primitive);
+
+2.2..3 MANIPULATION
+
+For manipulation you may use the push, pop, and
+insert functions. Those have their own variants,
+so let's first cover the pop variants.
+
+The pop variants are simply left and right. So
+for the left one it moves the string to the left
+so it removes the left part of the string. The
+right however simply decreases the length of the
+string. You may use the pop functions as so:
+
+const char *primitive = "Hello world!";
+spans_str_t string = spans_str_init(primitive);
+
+spans_str_popl(&string, 6); // Removes "Hello "
+spans_str_pop(&string, 1); // Removes "!"
+
+For push, it adds yet another layer, the char
+datatype, and the char pointer datatype, as so
+you may use them like this:
+
+// ... Continuing the above code
+spans_str_pushl_chrp(&string, "What is the "); // Prepends "What is the "
+spans_str_pushl_chr(&string, '?'); // Appends the '?' character.
+
+It may also be done with other spans_str_t
+datatypes.
+
+// ... Again continuing
+const spans_str_t temp = spans_str_init(" It is earth.");
+spans_str_pushr_str(&string, &temp); // Appends " It is earth."
+
+Inserting is the same as the push functions,
+but it also accepts an index of where to push
+the char, char pointer, and a string.
+
+// ... You get the idea
+const spans_str_t temp2 = spans_str_init(" A big beautiful sphere, As ");
+const char *prefix = ", I'm really curious";
+
+// Inserts prefix at idx 17.
+spans_str_insert_chrp(&string, prefix, 17);
+
+// Since it updated we need to insert at idx 39.
+spans_str_insert_str(&string, &temp2, 39)
+
+// Again updating, we need to insert at
+spans_str_insert_chr(&string, '?', );
+
+So now we can display our new string variable,
+via the `spans_str_display()' function. Do note
+that it is heap allocated so we must free it
+after use.
+
+// .
+
+After all this, we may free the string as we
+are not going to use it anymore, using the
+`spans_str_free()' function. Also along with
+all the other temporary string variables we
+initialized, we can run:
+
+// ...
+
+2.2..4 READING
+
+2.2..4 MISCELLANEOUS
 
 -------------------------------------------------
 Licensed under the GNU General Public License V3.
@@ -18,7 +168,7 @@ Licensed under the GNU General Public License V3.
 #ifndef SPANS_DEF
 #define SPANS_DEF
 
-#include "macros.h"
+#include "../macros.h"
 #include <stdlib.h>
 
 #ifndef SPANS_STR_LIB
@@ -137,10 +287,10 @@ same purpose.
 typedef struct
 {
   size_t
-	len,
-	clmn,
-	l_idx,
-	line_num;
+    len,
+    clmn,
+    l_idx,
+    line_num;
 }
 spans_span_t;
 
@@ -194,12 +344,12 @@ Similar to spans_str_popr, but it pops the left side.
 This still tries to deflate the string, much like the
 right version.
 */
-SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, const size_t sz);
+SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, size_t sz);
 
 /* This function removes the character at the index given. */
 SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
-								   const size_t       idx,
-								   const size_t       sz);
+                                   const size_t       idx,
+                                   const size_t       sz);
 
 /*
 This function pushes a character to the right, while
@@ -226,22 +376,28 @@ the right version of this function.
 */
 SPANS_STR_LIB int spans_str_pushl_chrp(spans_str_t *restr s, const char *restr p);
 
+/* This pushes a string from the left side. */
+SPANS_STR_LIB int spans_str_pushr_str(spans_str_t *restr a, const spans_str_t *restr b);
+
+/* The right version of spans_str_pushr_str(). */
+SPANS_STR_LIB int spans_str_pushl_str(spans_str_t *restr a, const spans_str_t *restr b);
+
 /*
 This inserts a character in an index to a string. This
 function also does bounds checks to allocate
 memory if needed.
 */
 SPANS_STR_LIB int spans_str_insert_chr(spans_str_t *restr s,
-									   const char         c,
-									   const size_t       idx);
+                                       const char         c,
+                                       const size_t       idx);
 
 /*
 This inserts a char pointer data into a string, similar
 to spans_str_insert_chr.
 */
 SPANS_STR_LIB int spans_str_insert_chrp(spans_str_t *restr s,
-										const char  *restr p,
-										const size_t       idx);
+                                        const char  *restr p,
+                                        const size_t       idx);
 
 /*
 This returns a heap allocated char pointer, so remember to
@@ -297,8 +453,8 @@ len.
 This is used to make `strspan_t`s.
 */
 SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t    *restr l,
-									  const size_t                      start_clmn,
-									  const size_t                      len);
+                                      const size_t                      start_clmn,
+                                      const size_t                      len);
 
 /*
 This is my version of power, so I don't have to take from
@@ -320,7 +476,7 @@ SPANS_LS_LIB void spans_ls_free(spans_linespan_t *restr l);
 
 /* Fetches the line span from the table. */
 SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t *restr lt,
-													const size_t                  l_idx);
+                                                    const size_t                  l_idx);
 
 /*
 Returns a strspan_t.
@@ -329,9 +485,9 @@ This fetches from the line span table, and fetches the
 string from `ls_fetch_self()`.
 */
 SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t *restr l,
-										   const size_t                  l_idx,
-										   const size_t                  start_clmn,
-										   const size_t                  len);
+                                           const size_t                  l_idx,
+                                           const size_t                  start_clmn,
+                                           const size_t                  len);
 
 /*
 This checks if strspan is equal to a char pointer. Of course this
@@ -346,19 +502,19 @@ SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a , const spans_
 
 /* This function concatenates s1's string, with s2's string. */
 SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
-								 const spans_strspan_t *restr s2);
+                                 const spans_strspan_t *restr s2);
 
 /* Repeats a character n times, for you lazy people. The pointer returned is heap allocated.*/
 SPANS_SS_STATIC char* spans_chr_repeat(const char c, const size_t n);
 
 /* This returns a heap allocated string, so remember to free it! */
 SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
-									const spans_strspan_t  *restr s,
-									const char                    swiggly_chr);
+                                    const spans_strspan_t  *restr s,
+                                    const char                    swiggly_chr);
 
 /* This converts the strspan_t to a span_t. */
 SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
-									  const spans_strspan_t *restr s);
+                                      const spans_strspan_t *restr s);
 
 /* Frees the string strspan_t */
 SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
@@ -380,6 +536,8 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define str_pushl_chr(s, c)  spans_str_pushl_chr(s, c)
 #define str_pushr_chrp(s, p) spans_str_pushr_chrp(s, p)
 #define str_pushl_chrp(s, p) spans_str_pushl_chrp(s, p)
+#define str_pushr_str(a, b)  spans_str_pushr_str(a, b)
+#define str_pushl_str(a, b)  spans_str_pushl_str(a. b)
 #define str_display(s)       spans_str_display(s)
 #define str_free(s)          spans_str_free(s)
 
@@ -422,16 +580,16 @@ SPANS_STR_LIB spans_str_t spans_str_creat(void)
   SPANS_ASSERT(p, "Failed to allocate p in str_creat()");
 
   return (spans_str_t) {
-	.__s = p,
-	.len = 0,
-	.cap = STR_T_INIT_SZ,
+    .__s = p,
+    .len = 0,
+    .cap = STR_T_INIT_SZ,
   };
 }
 
 SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
 {
   if (!s)
-	return spans_str_creat();
+    return spans_str_creat();
 
   const int slen  = strlen(s);
   size_t i = STR_T_INIT_SZ;
@@ -445,9 +603,9 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
   strcpy(str, s);
 
   return (spans_str_t) {
-	.__s = str,
-	.len = slen,
-	.cap = i,
+    .__s = str,
+    .len = slen,
+    .cap = i,
   };
 }
 
@@ -472,12 +630,12 @@ SPANS_STR_LIB int spans_str_reserve(spans_str_t *restr s, const size_t sz)
   if (!s) return -1;
   if (s->cap - s->len < sz)
   {
-	while (s->cap - s->len < sz) s->cap *= 2;
+    while (s->cap - s->len < sz) s->cap *= 2;
 
-	s->__s = realloc(s->__s, s->cap);
+    s->__s = realloc(s->__s, s->cap);
 
-	if (!s->__s) return -2;
-	return 1;
+    if (!s->__s) return -2;
+    return 1;
   }
   return 0;
 }
@@ -490,56 +648,57 @@ SPANS_STR_LIB int spans_str_popr(spans_str_t *restr s, const size_t sz)
 
   if (s->len < s->cap / 4)
   {
-	s->cap /= 2;
-	s->__s  = realloc(s->__s, s->cap);
+    s->cap /= 2;
+    s->__s  = realloc(s->__s, s->cap);
 
-	if (!s->__s) return -2;
-	return 1;
+    if (!s->__s) return -2;
+    return 1;
   }
 
   return 0;
 }
 
-SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, const size_t sz)
+SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, size_t sz)
 {
   if (!s) return -1;
+  if (s->len < sz) sz = s->len;
 
-  if (s->len < sz) s->len = 0;
-  else             s->len -= sz;
-  for (size_t i = 0; i < s->len - sz; i++)
-	s->__s[i] = s->__s[i + sz];
+  s->len -= sz;
+
+  for (size_t i = 0; i < s->len; i++)
+    s->__s[i] = s->__s[i + sz];
 
   if (s->len < s->cap / 4)
   {
-	s->cap /= 2;
-	s->__s  = realloc(s->__s, s->cap);
+    s->cap /= 2;
+    s->__s  = realloc(s->__s, s->cap);
 
-	if (!s->__s) return -2;
-	return 1;
+    if (!s->__s) return -2;
+    return 1;
   }
 
   return 0;
 }
 
 SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
-								   const size_t       idx,
-								   const size_t       sz)
+                                   const size_t       idx,
+                                   const size_t       sz)
 {
   if (!s) return -1;
   if (idx + sz >= s->len) return -2;
 
   for (size_t i = idx; i < s->len - 1; i++)
-	s->__s[i] = s->__s[i + sz];
+    s->__s[i] = s->__s[i + sz];
 
   s->len -= sz;
 
   if (s->len < s->cap / 4)
   {
-	s->cap /= 2;
-	s->__s  = realloc(s->__s, s->cap);
+    s->cap /= 2;
+    s->__s  = realloc(s->__s, s->cap);
 
-	if (!s->__s) return -2;
-	return 1;
+    if (!s->__s) return -2;
+    return 1;
   }
 
   return 0;
@@ -552,13 +711,13 @@ SPANS_STR_LIB int spans_str_pushr_chr(spans_str_t *restr s, const char c)
   switch (spans_str_reserve(s, 1))
   {
   case -2:
-	return -2;
+    return -2;
   case -1:
-	return -1;
+    return -1;
   case 1:
-	/* Fallthrough */
+    /* Fallthrough */
   case 0:
-	break;
+    break;
   }
 
   s->__s[s->len++] = c;
@@ -573,17 +732,17 @@ SPANS_STR_LIB int spans_str_pushl_chr(spans_str_t *restr s, const char c)
   switch (spans_str_reserve(s, 1))
   {
   case -2:
-	return -2;
+    return -2;
   case -1:
-	return -1;
+    return -1;
   case 1:
-	/* Fallthrough */
+    /* Fallthrough */
   case 0:
-	break;
+    break;
   }
 
   for (size_t i = s->len; i-- > 0;)
-	s->__s[i + 1] = s->__s[i];
+    s->__s[i + 1] = s->__s[i];
 
   s->__s[0] = c;
 
@@ -598,13 +757,13 @@ SPANS_STR_LIB int spans_str_pushr_chrp(spans_str_t *restr s, const char *restr p
   switch (spans_str_reserve(s, plen))
   {
   case -2:
-	return -2;
+    return -2;
   case -1:
-	return -1;
+    return -1;
   case 1:
-	/* Fallthrough */
+    /* Fallthrough */
   case 0:
-	break;
+    break;
   }
 
   memcpy(s->__s + s->len, p, plen);
@@ -621,17 +780,17 @@ SPANS_STR_LIB int spans_str_pushl_chrp(spans_str_t *restr s, const char *restr p
   switch (spans_str_reserve(s, plen))
   {
   case -2:
-	return -2;
+    return -2;
   case -1:
-	return -1;
+    return -1;
   case 1:
-	/* Fallthrough */
+    /* Fallthrough */
   case 0:
-	break;
+    break;
   }
 
-  for (size_t i = 0; i-- > 0;)
-	s->__s[i + plen] = s->__s[i];
+  for (size_t i = plen; i-- > 0;)
+    s->__s[i + plen] = s->__s[i];
 
   memcpy(s->__s, p, plen);
 
@@ -640,9 +799,33 @@ SPANS_STR_LIB int spans_str_pushl_chrp(spans_str_t *restr s, const char *restr p
   return 0;
 }
 
+SPANS_STR_LIB int spans_str_pushr_str(      spans_str_t *restr a,
+                                      const spans_str_t *restr b)
+{
+  if (!a) return -1;
+  if (!b) return -2;
+
+  int rval = spans_str_pushr_chrp(a, b->__s);
+  if (rval != 0) return rval - 2;
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_pushl_str(      spans_str_t *restr a,
+                                      const spans_str_t *restr b)
+{
+  if (!a) return -1;
+  if (!b) return -2;
+
+  int rval = spans_str_pushl_chrp(a, b->__s);
+  if (rval != 0) return rval - 2;
+
+  return 0;
+}
+
 SPANS_STR_LIB int spans_str_insert_chr(spans_str_t *restr s,
-									   const char         c,
-									   const size_t       idx)
+                                       const char         c,
+                                       const size_t       idx)
 {
   if (!s)                return -1;
   if (idx >= s->len)     return -2;
@@ -652,25 +835,25 @@ SPANS_STR_LIB int spans_str_insert_chr(spans_str_t *restr s,
   switch (spans_str_reserve(s, 1))
   {
   case -2:
-	return -2;
+    return -2;
   case -1:
-	return -1;
+    return -1;
   case 1:
-	/* Fallthrough */
+    /* Fallthrough */
   case 0:
-	break;
+    break;
   }
 
   for (size_t i = s->len; i-- > idx;)
-	s->__s[i + 1] =  s->__s[i];
+    s->__s[i + 1] =  s->__s[i];
   s->__s[idx] = c;
 
   return 0;
 }
 
 SPANS_STR_LIB int spans_str_insert_chrp(spans_str_t  *restr s,
-										const char   *restr p,
-										const size_t        idx)
+                                        const char   *restr p,
+                                        const size_t        idx)
 {
   if (!s)                return -1;
   if (idx >= s->len)     return -2;
@@ -682,18 +865,31 @@ SPANS_STR_LIB int spans_str_insert_chrp(spans_str_t  *restr s,
   switch (spans_str_reserve(s, plen))
   {
   case -2:
-	return -2;
+    return -2;
   case -1:
-	return -1;
+    return -1;
   case 1:
-	/* Fallthrough */
+    /* Fallthrough */
   case 0:
-	break;
+    break;
   }
 
   for (size_t i = s->len; i-- > idx;)
-	s->__s[i + plen] =  s->__s[i];
+    s->__s[i + plen] =  s->__s[i];
   memcpy(s->__s + idx, p, plen);
+
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_insert_str(      spans_str_t *restr a,
+                                       const spans_str_t *restr b,
+                                             size_t             idx)
+{
+  if (!a) return -1;
+  if (!b) return -2;
+
+  int rval = spans_str_insert_chrp(a, b->__s, idx);
+  if (rval != 0) return rval - 2;
 
   return 0;
 }
@@ -714,33 +910,33 @@ SPANS_STR_LIB void spans_str_free(spans_str_t *restrict s)
 SPANS_LS_LIB spans_linespan_t spans_ls_creat(const char *restr filepath)
 {
   return (spans_linespan_t) {
-	.str      = spans_str_creat(),
-	.filename = filepath,
-	.num      = 1,
+    .str      = spans_str_creat(),
+    .filename = filepath,
+    .num      = 1,
   };
 }
 
 SPANS_LS_LIB spans_linespan_t spans_ls_init(const char *restr span,
-											const char *restr filepath,
-											const size_t      line_num)
+                                            const char *restr filepath,
+                                            const size_t      line_num)
 {
   return (spans_linespan_t) {
-	.str      = spans_str_init(span),
-	.filename = filepath,
-	.num      = line_num,
+    .str      = spans_str_init(span),
+    .filename = filepath,
+    .num      = line_num,
   };
 }
 
 SPANS_LS_LIB int spans_ls_equal(const linespan_t *restr a,
-								const linespan_t *restr b)
+                                const linespan_t *restr b)
 {
   if (!a) return -1;
   if (!b) return -2;
   if (a->num != b->num)
-	return -3;
+    return -3;
   const int rval = spans_str_equal_str(&a->str, &b->str);
   if (rval < 0)
-	return rval - 3;
+    return rval - 3;
   return rval;
 }
 
@@ -753,13 +949,13 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_table_creat(void)
   spans_linespan_t *ptr = malloc(sizeof(*ptr) * SPANS_LS_TABLE_INITSZ);
   SPANS_ASSERT(ptr, "Failed to allocate in spans_ls_table_creat().");
   return (spans_ls_table_t) {
-	.ptr = ptr, .len = 0,
-	.cap = sizeof(*ptr) * SPANS_LS_TABLE_INITSZ,
+    .ptr = ptr, .len = 0,
+    .cap = sizeof(*ptr) * SPANS_LS_TABLE_INITSZ,
   };
 }
 
 SPANS_LS_LIB int spans_ls_table_push(spans_ls_table_t *restr lt,
-									 const spans_linespan_t  l)
+                                     const spans_linespan_t  l)
 {
   if (!lt) return -1;
 
@@ -767,7 +963,7 @@ SPANS_LS_LIB int spans_ls_table_push(spans_ls_table_t *restr lt,
   {
     lt->cap *= 2;
     lt->ptr = realloc(lt->ptr, lt->cap);
-	if (!lt->ptr) return -2;
+    if (!lt->ptr) return -2;
   }
 
   lt->ptr[lt->len] = l;
@@ -783,7 +979,7 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath)
   if (!f)
   {
     spans_ls_table_free(&lt);
-	SPANS_PANIC("Failed to open file.");
+    SPANS_PANIC("Failed to open file.");
   }
 
   size_t            lnum    = 1;
@@ -793,24 +989,24 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath)
 
   while (cur != EOF)
   {
-	ls_push.str = spans_str_creat();
-	while ((cur - fgetc(f)) != EOF || cur != '\n')
-	{
-	  if (spans_str_pushr_chr(&ls_push.str, (char) cur) < 0)
-		SPANS_PANIC("Failed to push character in spans_ls_fetch_file().");
-	}
-	ls_push.num = lnum;
-	lnum++;
+    ls_push.str = spans_str_creat();
+    while ((cur - fgetc(f)) != EOF || cur != '\n')
+    {
+      if (spans_str_pushr_chr(&ls_push.str, (char) cur) < 0)
+        SPANS_PANIC("Failed to push character in spans_ls_fetch_file().");
+    }
+    ls_push.num = lnum;
+    lnum++;
 
-	spans_ls_table_push(&lt, ls_push);
+    spans_ls_table_push(&lt, ls_push);
   }
 
   return lt;
 }
 
 SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
-									   const size_t                  start,
-									   const size_t                  len)
+                                       const size_t                  start,
+                                       const size_t                  len)
 {
   if (l->str.len < start || l->str.len < start + len) return NULL;
 
@@ -824,7 +1020,7 @@ SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
 }
 
 SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *restr lt,
-														  const size_t               l_idx)
+                                                          const size_t               l_idx)
 {
   if (lt->len <= l_idx) return NULL;
 
@@ -836,7 +1032,7 @@ SPANS_LS_STATIC size_t spans_power(const size_t a, const size_t b)
   if (b == 0) return 1L;
   size_t o = a;
   for (size_t i = 0; i < b; i++)
-	o *= a;
+    o *= a;
   return o;
 }
 
@@ -846,7 +1042,7 @@ SPANS_LS_STATIC size_t spans_numlen(const size_t i)
   size_t j   = 0;
 
   while (i / pow != 0)
-	pow = spans_power(pow, ++j);
+    pow = spans_power(pow, ++j);
 
   if (j == 0) return 1;
   return j;
@@ -860,8 +1056,8 @@ SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
 
   char *str_display = spans_str_display(&l->str);
   snprintf(buff, buff_sz,
-		   "%lu | %s",
-		   l->num, str_display);
+           "%lu | %s",
+           l->num, str_display);
 
   free(str_display);
   return buff;
@@ -876,16 +1072,16 @@ SPANS_LS_LIB void spans_ls_table_free(spans_ls_table_t *restr ltv)
 {
   for (size_t i = 0; i < ltv->len; i++)
   {
-	linespan_t *l = &ltv->ptr[i];
-	ls_free(l);
+    linespan_t *l = &ltv->ptr[i];
+    ls_free(l);
   }
   free(ltv->ptr);
 }
 
 SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
-										   const size_t                     l_idx,
-										   const size_t                     start,
-										   const size_t                     len)
+                                           const size_t                     l_idx,
+                                           const size_t                     start,
+                                           const size_t                     len)
 {
   SPANS_ASSERT(l, "l is NULL in ss_init()");
   SPANS_ASSERT(l->str.len > start, "Starting index is out of l->str's bounds in ss_init()");
@@ -898,36 +1094,36 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
   free(p);
 
   return (spans_strspan_t) {
-	.str      = s,
-	.len      = s.len,
-	.clmn     = start,
-	.line_idx = l_idx,
+    .str      = s,
+    .len      = s.len,
+    .clmn     = start,
+    .line_idx = l_idx,
   };
 }
 
 SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr s,
-									 const char            *restr c)
+                                     const char            *restr c)
 {
   if (!s) return -1;
   const int rval = spans_str_equal_chrp(&s->str, c);
   if (rval < 0)
-	return rval - 1;
+    return rval - 1;
   return rval;
 }
 
 SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a,
-								   const spans_strspan_t *restr b)
+                                   const spans_strspan_t *restr b)
 {
   if (!a) return -1;
   if (!b) return -2;
   const int rval = spans_str_equal_str(&a->str, &b->str);
   if (rval < 0)
-	return rval - 2;
+    return rval - 2;
   return rval;
 }
 
 SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
-								 const spans_strspan_t *restr s2)
+                                 const spans_strspan_t *restr s2)
 {
   if (!s1 || !s2)                   return -1;
   if (s1->line_idx != s2->line_idx) return -2;
@@ -947,8 +1143,8 @@ SPANS_SS_STATIC char* spans_chr_repeat(const char c, const size_t n)
 }
 
 SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
-									const spans_strspan_t  *restr s,
-									const char                    swiggly_chr)
+                                    const spans_strspan_t  *restr s,
+                                    const char                    swiggly_chr)
 {
   const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
   if (!l) return NULL;
@@ -964,7 +1160,7 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
 
   char *ls_display = spans_ls_display(l);
   snprintf(buf, buf_sz, "%s\n%s | %s%s",
-		   ls_display, spaces1, spaces2, swiggly);
+           ls_display, spaces1, spaces2, swiggly);
 
   free(ls_display);
   free(swiggly);
@@ -974,16 +1170,16 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
 }
 
 SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
-									  const spans_strspan_t  *restr s)
+                                      const spans_strspan_t  *restr s)
 {
   const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
   SPANS_ASSERT(l, "l_idx of s is invalid.");
 
   return (spans_span_t) {
-	.len      = s->len,
-	.clmn     = s->clmn,
-	.l_idx    = s->line_idx,
-	.line_num = l->num,
+    .len      = s->len,
+    .clmn     = s->clmn,
+    .l_idx    = s->line_idx,
+    .line_num = l->num,
   };
 }
 
