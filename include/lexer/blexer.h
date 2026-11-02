@@ -450,13 +450,21 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 #define lextok_vec_t  blexer_lextok_vec_t
 #define lexer_state_t blexer_lexer_state_t
 
+/* -- BLEXER STATIC -- */
+/* - Creation - */
 #define ltvec_creat()                                 blexer_ltvec_creat()
+
+/* - Manipulation - */
 #define ltvec_push(ltv, p)                            blexer_ltvec_push(ltv, p)
 #define fetch_n_push(l, out, stat, l_idx, start, len) blexer_fetch_n_push(l, out, stat, l_idx, start, len)
 
-#define ltok_free(ltok)         blexer_ltok_free(ltok)
-#define ltvec_free(ltvec)       blexer_ltvec_free(ltvec)
+/* -- BLEXER LIBRARY -- */
+/* - Interface - */
 #define tokenize_line(l, l_idx) blexer_tokenize_line(l, l_idx)
+
+/* - Misc. - */
+#define ltvec_free(ltvec)       blexer_ltvec_free(ltvec)
+#define ltok_free(ltok)         blexer_ltok_free(ltok)
 
 /* --- IMPLEMENTATION --- */
 

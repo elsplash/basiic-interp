@@ -373,45 +373,74 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define strspan_t  spans_strspan_t
 #define span_t     spans_span_t
 
+/* -- STRING LIBRARY -- */
+/* - Creation - */
 #define str_creat()          spans_str_creat()
 #define str_init(s)          spans_str_init(s)
+
+/* - Comparison - */
 #define str_equal_chrp(s, c)  spans_str_equal_chrp(s, c)
 #define str_equal_str(a, b)  spans_str_equal_str(a, b)
-#define str_reserve(s, sz)   spans_str_reserve(s, sz)
+
+
+/* - Popping - */
 #define str_popr(s, sz)      spans_str_popr(s, sz)
 #define str_popl(s, sz)      spans_str_popl(s, sz)
+
+/* - Pushing - */
 #define str_pushr_chr(s, c)  spans_str_pushr_chr(s, c)
 #define str_pushl_chr(s, c)  spans_str_pushl_chr(s, c)
 #define str_pushr_chrp(s, p) spans_str_pushr_chrp(s, p)
 #define str_pushl_chrp(s, p) spans_str_pushl_chrp(s, p)
 #define str_pushr_str(a, b)  spans_str_pushr_str(a, b)
 #define str_pushl_str(a, b)  spans_str_pushl_str(a. b)
+
+/* - Misc. - */
+#define str_reserve(s, sz)   spans_str_reserve(s, sz)
 #define str_display(s)       spans_str_display(s)
 #define str_free(s)          spans_str_free(s)
 
-#define ls_creat(file_path)               spans_ls_creat(file_path)
-#define ls_equal(a, b)                    spans_ls_equal(a, b)
-#define ls_fetch_file(file_path)          spans_ls_fetch_file(file_path)
-#define ls_table_free(ltv)                spans_ls_table_free(ltv)
-#define ls_fetch_self(l, start_clmn, len) spans_ls_fetch_self(l, start_clmn, len)
+/* -- LINESPAN LIBRARY -- */
+/* - Static - */
 #define power(a, b)                       spans_power(a, b)
 #define numlen(n)                         spans_numlen(n)
-#define ls_display(l)                     spans_ls_display(l)
-#define ls_free(l)                        spans_ls_free(l)
+
+/* - Creation - */
+#define ls_creat(file_path)               spans_ls_creat(file_path)
+
+/* - Comparion - */
+#define ls_equal(a, b)                    spans_ls_equal(a, b)
+
+/* - Fetching - */
+#define ls_fetch_file(file_path)          spans_ls_fetch_file(file_path)
+#define ls_fetch_self(l, start_clmn, len) spans_ls_fetch_self(l, start_clmn, len)
 #define ls_table_fetch(lt, l_idx)         spans_ls_table_fetch(lt, l_idx)
 
+/* - Misc. - */
+#define ls_table_free(ltv)                spans_ls_table_free(ltv)
+#define ls_display(l)                     spans_ls_display(l)
+#define ls_free(l)                        spans_ls_free(l)
+
+/* -- STRING SPAN LIBRARY -- */
+/* - Static - */
+#define chr_repeat(c, n)                    spans_chr_repeat(c, n)
+
+/* - Creation - */
 #define ss_init(lt, l_idx, start_clmn, len) spans_ss_init(lt, l_idx, start_clmn, len)
+
+/* - Comparison - */
 #define ss_equal_chrp(s, c)                 spans_ss_equal_chrp(s, c)
 #define ss_equal_ss(a, b)                   spans_ss_equal_ss(a, b)
+
+/* - Manipulation - */
 #define ss_concat(s1, s2)                   spans_ss_concat(s1, s2)
 #define ss_to(s)                            spans_ss_to(s)
-#define chr_repeat(c, n)                    spans_chr_repeat(c, n)
+
+/* - Misc. - */
 #define ss_display(lt, s, swiggle_chr)      spans_ss_display(lt, s, swiggle_chr)
 #define ss_free(s)                          spans_ss_free(s)
 
 /* --- IMPLEMENTATION --- */
-
-#define SPANS_IMPL
 
 #ifdef SPANS_IMPL
 
