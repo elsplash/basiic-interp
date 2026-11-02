@@ -59,10 +59,13 @@ This is the type of a CST Node.
 Which are labelled accordingly:
 CNT => CST Node Type
 
-CNT_V... => Variable
-CNT_S... => Statement
-CNT_P... => Parenthesis
-CNT_M... => Miscellanious
+CNT_CH_... => Node children
+CNT_PR_... => Node parent
+
+CNT_..._V... => Variable
+CNT_..._S... => Statement
+CNT_..._P... => Parenthesis
+CNT_..._M... => Miscellanious
 */
 typedef enum {
   CNT_LABEL,  /* Alphabetic characters only (TT_NS_ID) */
@@ -74,35 +77,32 @@ typedef enum {
   These datatype types must point to the character span
   in the CST Node struct.
   */
-  CNT_V_SHORT,
-  CNT_V_LONG,
+  CNT_CH_V_SHORT,
+  CNT_CH_V_LONG,
 
-  CNT_V_SINGLE,
-  CNT_V_DOUBLE,
+  CNT_CH_V_SINGLE,
+  CNT_CH_V_DOUBLE,
 
-  CNT_V_STRING,
+  CNT_CH_V_STRING,
 
-  CNT_V_IMPLICIT,
+  CNT_CH_V_IMPLICIT,
 
   /* Statements */
-  CNT_S_LABEL,
+  CNT_PR_S_LABEL,
 
-  CNT_S_VAR_DEF,
+  CNT_PR_S_VAR_DEF,
 
-  CNT_S_RUN,
+  CNT_PR_S_RUN,
 
   /* Parenthesis */
-  CNT_P_PAREN,
-  CNT_P_L_PAREN,
-  CNT_P_COMMA,
-  CNT_P_R_PAREN,
+  CNT_PR_PAREN,
+  CNT_CH_L_PAREN,
+  CNT_CH_COMMA,
+  CNT_CH_R_PAREN,
 
-  /* Miscellaneous */
-  CNT_M_APOST_COMMENT,
-
-  CNT_M_BIN_OP,
-
-  CNT_M_ERR,
+  CNT_PR_APOST_COMMENT,
+  CNT_PR_BIN_OP,
+  CNT_PR_ERR,
 }
 cst_cstnode_type_t;
 
@@ -163,19 +163,33 @@ CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
                                       const blexer_tokentype_t         tt);
 
 /*
-This function pushes a CST Node to the cn's contents
+This function pushes a CST Node to the cn's children linked list
 
 This function assumes that push is heap allocated so it may
 survive for the cn's duration, and it will be freed by
-cst_cstnode_free().
+`cst_cstnode_free()'.
 
 There are error codes:
 -2 - push is NULL.
 -1 - cn is NULL.
  0 - No issues.
 */
-CST_STATIC int cst_cstnode_push_contents(cst_cstnode_t *restr cn,
+CST_STATIC int cst_cstnode_push_children(cst_cstnode_t *restr cn,
                                          cst_cstnode_t *restr push);
+
+/*
+This function pushes a CST Node to the cn's next linked list.
+
+Similar to `cst_cstnode_push_children', it assumes that push is
+heap allocated, and to be freed by 	cst_cstnode_free()'
+
+There are error codes:
+-2 - push is NULL.
+-1 - cn is NULL.
+ 0 - No issues.
+*/
+CST_STATIC int cst_cstnode_push_next(cst_cstnode_t *restr cn,
+                                     cst_cstnode_t *restr push);
 
 /*
 The interface function you may call if you want all the tokens
@@ -211,7 +225,7 @@ CST_LIB cst_cstnode_t cst_parse_paren_cst(const blexer_lextok_vec_t *restr ltvec
 										         size_t              *restr ltstart);
 
 /* Consumes the remaining comments for the parser */
-CST_LIB int cst_consume_cst_comment_cst(const blexer_lextok_vec_t *restr ltvec,
+CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
                                               cst_cnvec_t         *restr cnvec,
                                               size_t              *restr ltstart);
 
@@ -228,20 +242,39 @@ CST_LIB void cst_cstnode_free(cst_cstnode_t *cn);
 #define cstnode_t      cst_cstnode_t
 #define cnvec_t        cst_cnvec_t
 
-#define cnvec_creat()                   cst_cnvec_creat()
-#define cnvec_push(cnvec, cn)           cst_cnvec_push(cnvec, cn)
+/* -- STATIC -- */
+/* - Misc. - */
 #define expect_ltok(ltvec, ltstart, tt) cst_expect_ltok(ltvec, ltstart, tt)
-#define cstnode_push_contents(cn, push) cst_cstnode_push_contents(cn, push)
 
-#define parse_cst_line(lt, ltvec)      cst_parse_cst_line(lt, ltvec)
-#define error_cst(ltvec, ltstart)      cst_error_cst(ltvec, ltstart)
-#define parse_label(ltvec)             cst_parse_label(ltvec)
-#define parse_expr_cst(ltvec, ltstart) cst_parse_expr_cst(ltvec, ltstart)
-#define cstnode_free(cn)               cst_cstnode_free(cn)
+/* - CST Node - */
+#define cstnode_push_children(cn, push) cst_cstnode_push_children(cn, push)
+#define cstnode_push_next(cn, push)     cst_cstnode_push_next(cn, push)
+
+/* - CST Node Vector helper functions - */
+#define cnvec_push(cnvec, cn) cst_cnvec_push(cnvec, cn)
+#define cnvec_creat()         cst_cnvec_creat()
+
+/* -- Library -- */
+/* - Misc. - */
+#define cstnode_free(cn) cst_cstnode_free(cn)
+#define error_cst(ltvec, ltstart) cst_error_cst(ltvec, ltstart)
+
+/* - Interface - */
+#define parse_cst_line(lt, ltvec) cst_parse_cst_line(lt, ltvec)
+
+/* - Parsers - */
+#define parse_label_cst(ltvec) cst_parse_label(ltvec)
+#define parse_paren_cst(ltvec, ltstart) cst_parse_paren_cst(ltvec, ltstart)
+#define parse_expr_cst(ltvec, ltstart)  cst_parse_expr_cst(ltvec, ltstart)
+
+/* - Consumers - */
+#define consume_cst_comment(ltvec, cnvec, ltstart) cst_consume_cst_comment(ltvec, cnvec, ltstart)
 
 /* --- IMPLEMENTATION --- */
 
+/* NOTE: Development leftover!! REMOVE AT RELEASE! */
 #define CST_IMPL
+
 #ifdef CST_IMPL
 #include <memory.h>
 
@@ -287,7 +320,7 @@ CST_STATIC int cst_expect_ltok(const blexer_lextok_vec_t *restr ltvec,
   return ltvec->ltok_ptr[ltv_idx].type == tt;
 }
 
-CST_STATIC int cst_cstnode_push_contents(cst_cstnode_t *restr cn,
+CST_STATIC int cst_cstnode_push_children(cst_cstnode_t *restr cn,
                                          cst_cstnode_t *restr push)
 {
   if (!cn)   return -1;
@@ -295,11 +328,26 @@ CST_STATIC int cst_cstnode_push_contents(cst_cstnode_t *restr cn,
 
   cst_cstnode_t *ptr = cn;
 
-  while (ptr->children) {
+  while (ptr->children)
     ptr = ptr->children;
-  }
 
   ptr->children = push;
+
+  return 0;
+}
+
+CST_STATIC int cst_cstnode_push_next(cst_cstnode_t *restr cn,
+                                     cst_cstnode_t *restr push)
+{
+  if (!cn)   return -1;
+  if (!push) return -2;
+
+  cst_cstnode_t *ptr = cn;
+
+  while (ptr->next)
+    ptr = ptr->next;
+
+  ptr->next = push;
 
   return 0;
 }
@@ -388,10 +436,10 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
       .children = NULL,
     };
 
-    cst_cstnode_push_contents(&cn, &expr);
+    cst_cstnode_push_next(&cn, &expr);
     cst_cnvec_push(cnvec, cn);
 
-    if (!cst_consume_cst_comment_cst(ltvec, cnvec, &cur_idx)) {
+    if (!cst_consume_cst_comment(ltvec, cnvec, &cur_idx)) {
       cst_cstnode_free(&cn);
       cst_cstnode_free(&expr);
 
@@ -435,7 +483,7 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     cst_cnvec_push(cnvec, cn);
   }
 
-    if (!cst_consume_cst_comment_cst(ltvec, cnvec, &cur_idx))
+    if (!cst_consume_cst_comment(ltvec, cnvec, &cur_idx))
       goto Error;
 
     break;
@@ -451,7 +499,7 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
 	cst_parse_paren_cst(ltvec, &cur_idx);
 
-    if (!cst_consume_cst_comment_cst(ltvec, cnvec, &cur_idx))
+    if (!cst_consume_cst_comment(ltvec, cnvec, &cur_idx))
       goto Error;
 
     break;
@@ -467,7 +515,7 @@ CST_LIB cst_cnvec_t* cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
     /* ... */
 
-    if (!cst_consume_cst_comment_cst(ltvec, cnvec, &cur_idx))
+    if (!cst_consume_cst_comment(ltvec, cnvec, &cur_idx))
       goto Error;
 
     break;
@@ -890,7 +938,7 @@ CST_LIB cst_cstnode_t cst_parse_paren_cst(const blexer_lextok_vec_t *restr ltvec
       .span     = ltvec->ltok_ptr[*ltstart].span,
       .children = NULL,
     };
-    cst_cstnode_push_contents(&cn, &lparen);
+    cst_cstnode_push_children(&cn, &lparen);
   }
 
   for (size_t *i = ltstart + 1; *i < ltvec->len; (*i)++)
@@ -904,7 +952,7 @@ CST_LIB cst_cstnode_t cst_parse_paren_cst(const blexer_lextok_vec_t *restr ltvec
         .span     = ltvec->ltok_ptr[*i].span,
         .children = NULL,
       };
-      cst_cstnode_push_contents(&cn, &rparen);
+      cst_cstnode_push_children(&cn, &rparen);
       break;
     }
 
@@ -915,12 +963,12 @@ CST_LIB cst_cstnode_t cst_parse_paren_cst(const blexer_lextok_vec_t *restr ltvec
         .span     = ltvec->ltok_ptr[*i].span,
         .children = NULL,
       };
-      cst_cstnode_push_contents(&cn, &comma);
+      cst_cstnode_push_children(&cn, &comma);
       continue;
     }
 
     cst_cstnode_t expr = cst_parse_expr_cst(ltvec, i);
-    cst_cstnode_push_contents(&cn, &expr);
+    cst_cstnode_push_children(&cn, &expr);
   }
 
   return cn;
