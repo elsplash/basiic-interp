@@ -501,10 +501,10 @@ BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
   if (!ltvec)
     return 0;
 
-  if (!ltvec->ptr)
+  if (!ltvec->ltok_ptr)
     return -1;
 
-  if (ltvec->len * sizeof(*ltvec->ptr) > ltvec->cap)
+  if (ltvec->len * sizeof(*ltvec->ltok_ptr) > ltvec->cap)
     return -2;
 
   return 1;
@@ -527,7 +527,7 @@ BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *re
 {
   BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is not valid in blexer_ltvec_fetch()");
 
-  return ltvec->ptr[idx];
+  return ltvec->ltok_ptr[idx];
 }
 
 BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltvec, const blexer_lextoken_t p)
