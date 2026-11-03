@@ -474,7 +474,6 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
   while (i < slen) i *= 2;
 
   char * str = calloc(1, i);
-
   SPANS_ASSERT(str, "Failed to allocate str in str_creat()");
 
   strcpy(str, s);
@@ -507,11 +506,40 @@ SPANS_STR_LIB int spans_str_reserve(spans_str_t *restr s, const size_t sz)
   if (!s) return -1;
   if (s->cap - s->len < sz)
   {
+    const size_t og_cap = s->cap;
     while (s->cap - s->len < sz) s->cap *= 2;
 
-    s->__s = realloc(s->__s, s->cap);
+    void *ptr = realloc(s->__s, s->cap);
+    if (!ptr)
+    {
+      s->cap = og_cap;
+      return -2;
+    }
 
-    if (!s->__s) return -2;
+    s->__s = (char*) ptr;
+
+    return 1;
+  }
+  return 0;
+}
+
+SPANS_STR_LIB int spans_str_deflate(spacs_str_t *restr s)
+{
+  if (!s) return -1;
+  if (s->len * 4 < s->cap)
+  {
+    const size_t og_cap = s->cap;
+    while (s->len * 4 < s->cap) s->cap /= 2;
+
+    void *ptr = realloc(s->__s, s->cap);
+    if (!ptr)
+    {
+      s->cap = og_cap;
+      return -2;
+    }
+
+    s->__s = (char*) ptr;
+
     return 1;
   }
   return 0;
@@ -523,16 +551,7 @@ SPANS_STR_LIB int spans_str_popr(spans_str_t *restr s, const size_t sz)
 
   s->len -= sz;
 
-  if (s->len < s->cap / 4)
-  {
-    s->cap /= 2;
-    s->__s  = realloc(s->__s, s->cap);
-
-    if (!s->__s) return -2;
-    return 1;
-  }
-
-  return 0;
+  return spans_str_deflate(s);
 }
 
 SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, size_t sz)
@@ -544,17 +563,8 @@ SPANS_STR_LIB int spans_str_popl(spans_str_t *restr s, size_t sz)
 
   for (size_t i = 0; i < s->len; i++)
     s->__s[i] = s->__s[i + sz];
-
-  if (s->len < s->cap / 4)
-  {
-    s->cap /= 2;
-    s->__s  = realloc(s->__s, s->cap);
-
-    if (!s->__s) return -2;
-    return 1;
-  }
-
-  return 0;
+  
+  return spans_str_deflate(s);
 }
 
 SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
@@ -568,17 +578,8 @@ SPANS_STR_LIB int spans_str_pop_at(spans_str_t *restr s,
     s->__s[i] = s->__s[i + sz];
 
   s->len -= sz;
-
-  if (s->len < s->cap / 4)
-  {
-    s->cap /= 2;
-    s->__s  = realloc(s->__s, s->cap);
-
-    if (!s->__s) return -2;
-    return 1;
-  }
-
-  return 0;
+  
+  return spans_str_deflate(s);
 }
 
 SPANS_STR_LIB int spans_str_pushr_chr(spans_str_t *restr s, const char c)
@@ -826,8 +827,9 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_table_creat(void)
   spans_linespan_t *ptr = malloc(sizeof(*ptr) * SPANS_LS_TABLE_INITSZ);
   SPANS_ASSERT(ptr, "Failed to allocate in spans_ls_table_creat().");
   return (spans_ls_table_t) {
-    .ptr = ptr, .len = 0,
-    .cap = sizeof(*ptr) * SPANS_LS_TABLE_INITSZ,
+    .ptr = ptr,
+    .len = 0,
+    .cap = SPANS_LS_TABLE_INITSZ,
   };
 }
 
@@ -836,11 +838,18 @@ SPANS_LS_LIB int spans_ls_table_push(spans_ls_table_t *restr lt,
 {
   if (!lt) return -1;
 
-  if ((lt->len + 1) * sizeof(*lt->ptr) > lt->cap)
+  if (lt->len > lt->cap)
   {
     lt->cap *= 2;
-    lt->ptr = realloc(lt->ptr, lt->cap);
-    if (!lt->ptr) return -2;
+
+    void *ptr = realloc(lt->ptr, lt->cap * sizeof(lt->ptr));
+    if (!ptr)
+    {
+      lt->cap /= 2;
+      return -2;
+    }
+
+    lt->ptr = (spans_linespan_t*) ptr;
   }
 
   lt->ptr[lt->len] = l;
@@ -982,9 +991,11 @@ SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr s,
                                      const char            *restr c)
 {
   if (!s) return -1;
+
   const int rval = spans_str_equal_chrp(&s->str, c);
   if (rval < 0)
     return rval - 1;
+
   return rval;
 }
 
@@ -993,9 +1004,11 @@ SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a,
 {
   if (!a) return -1;
   if (!b) return -2;
+
   const int rval = spans_str_equal_str(&a->str, &b->str);
   if (rval < 0)
     return rval - 2;
+
   return rval;
 }
 
@@ -1016,6 +1029,7 @@ SPANS_SS_STATIC char* spans_chr_repeat(const char c, const size_t n)
   char *o = calloc(1, n + 1);
   if (!o) return NULL;
   memset(o, (int) c, n);
+
   return o;
 }
 
