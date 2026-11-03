@@ -379,10 +379,29 @@ typedef enum
 blexer_lexer_state_t;
 
 /*
+This function validates the lexer token vector if it's somehow
+not valid. Though if these functions somehow fail, or you
+manually manipulated them, you can never be too sure.
+*/
+BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec);
+
+/*
 This function creates an blexer_lextok_vec_t datatype, just for you
 to not do it manually. The ptr will be heap allocated by default.
 */
 BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void);
+
+/*
+This function fetches a lexer token for you.
+
+This couplees some checks, like validating the lexer token vector,
+and doing bounds checking for the idx.
+
+NOTE: If this function should return a pointer instead, I believe we
+      should simply move that to another function instead.
+*/
+BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *restr ltvec,
+                                                   const size_t                     idx);
 
 /*
 This function is used to push to the lexer token vector
@@ -477,10 +496,24 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 #define BLEXER_LTVEC_INITSZ 8
 #endif
 
+BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
+{
+  if (!ltvec)
+    return 0;
+
+  if (!ltvec->ptr)
+    return -1;
+
+  if (ltvec->len * sizeof(*ltvec->ptr) > ltvec->cap)
+    return -2;
+
+  return 1;
+}
+
 BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void)
 {
   blexer_lextoken_t *ptr = calloc(sizeof(*ptr), BLEXER_LTVEC_INITSZ);
-  BLEXER_ASSERT(ptr, "Failed ot allocate in blexer_ltvec_creat()");
+  BLEXER_ASSERT(ptr, "Failed to allocate in blexer_ltvec_creat()");
 
   return (blexer_lextok_vec_t) {
     .ltok_ptr = ptr,
@@ -489,17 +522,25 @@ BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void)
   };
 }
 
+BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *restr ltvec,
+                                                   const size_t                     idx)
+{
+  BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is not valid in blexer_ltvec_fetch()");
+
+  return ltvec->ptr[idx];
+}
+
 BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltvec, const blexer_lextoken_t p)
 {
-  if (!ltvec) return -1;
+  int rval = blexer_ltvec_validate(ltvec) - 1;
+  if (rval != 0) return rval;
 
-  int rval = 0;
   if ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
   {
-      while ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
-        ltvec->cap *= 2;
-      ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
-      rval = 1;
+    while ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
+      ltvec->cap *= 2;
+    ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
+    rval++;
   }
 
   ltvec->ltok_ptr[ltvec->len++] = p;
@@ -905,12 +946,14 @@ BLEXER_LIB int blexer_ltok_free(blexer_lextoken_t *restr ltok)
 
 BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
 {
-  if (!ltvec) return -2;
-  int rval = 0;
+  int rval = blexer_ltvec_validate(ltvec) - 1;
+  if (rval != 0) return rval; 
+
   for (size_t i = 0; i < ltvec->len; i++)
   {
-    if (blexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) rval++;
+    if (blexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) return i;
   }
+
   free(ltvec->ltok_ptr);
   return 0;
 }
