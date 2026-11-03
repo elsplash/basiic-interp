@@ -48,7 +48,7 @@ Licensed under the GNU General Public License V3.
 #include <stdio.h>
 #define SPANS_PANIC(message) \
 do {                         \
-  puts("SPANS PANIC!");      \
+  puts("[SPANS PANIC!]");      \
   puts(message);             \
   exit(1);                   \
 } while (0)
