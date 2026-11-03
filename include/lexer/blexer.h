@@ -526,6 +526,7 @@ BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *re
                                                    const size_t                     idx)
 {
   BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is not valid in blexer_ltvec_fetch()");
+  BLEXER_ASSERT(idx >= ltvec->len, "idx is out of bound sin blexer_ltvec_fetch");
 
   return ltvec->ltok_ptr[idx];
 }
