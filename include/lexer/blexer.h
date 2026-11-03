@@ -361,7 +361,7 @@ our lexer tokens to be stored in.
 */
 typedef struct
 {
-  blexer_lextoken_t * ltok_ptr;
+  blexer_lextoken_t * ptr;
   size_t              len;
   size_t              cap;
 }
@@ -382,6 +382,16 @@ blexer_lexer_state_t;
 This function validates the lexer token vector if it's somehow
 not valid. Though if these functions somehow fail, or you
 manually manipulated them, you can never be too sure.
+
+This is made so that you can check via `if (blexer_ltvec_validate())'
+or `if (!blexer_ltvec_validate())' so you don't have to add `== 0'.
+
+This returns the values of:
+
+-2 - ltvec->len is more than ltvec->cap
+-1 - ltvec->ptr is NULL.
+ 0 - ltvec is NULL>
+ 1 - No issues.
 */
 BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec);
 
@@ -501,10 +511,10 @@ BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
   if (!ltvec)
     return 0;
 
-  if (!ltvec->ltok_ptr)
+  if (!ltvec->ptr)
     return -1;
 
-  if (ltvec->len * sizeof(*ltvec->ltok_ptr) > ltvec->cap)
+  if (ltvec->len > ltvec->cap)
     return -2;
 
   return 1;
@@ -516,7 +526,7 @@ BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void)
   BLEXER_ASSERT(ptr, "Failed to allocate in blexer_ltvec_creat()");
 
   return (blexer_lextok_vec_t) {
-    .ltok_ptr = ptr,
+    .ptr = ptr,
     .len      = 0,
     .cap      = BLEXER_LTVEC_INITSZ
   };
@@ -528,7 +538,7 @@ BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *re
   BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is not valid in blexer_ltvec_fetch()");
   BLEXER_ASSERT(idx >= ltvec->len, "idx is out of bound sin blexer_ltvec_fetch");
 
-  return ltvec->ltok_ptr[idx];
+  return ltvec->ptr[idx];
 }
 
 BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltvec, const blexer_lextoken_t p)
@@ -536,15 +546,15 @@ BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltvec, const blex
   int rval = blexer_ltvec_validate(ltvec) - 1;
   if (rval != 0) return rval;
 
-  if ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
+  if (ltvec->len + 1 >= ltvec->cap)
   {
-    while ((ltvec->len + 1) * sizeof(blexer_lextoken_t) >= ltvec->cap)
+    while (ltvec->len + 1 >= ltvec->cap)
       ltvec->cap *= 2;
-    ltvec->ltok_ptr = realloc(ltvec->ltok_ptr, ltvec->cap);
+    ltvec->ptr = realloc(ltvec->ptr, ltvec->cap * sizeof(*ltvec->ptr));
     rval++;
   }
 
-  ltvec->ltok_ptr[ltvec->len++] = p;
+  ltvec->ptr[ltvec->len++] = p;
   return rval;
 }
 
@@ -574,340 +584,340 @@ BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t    *restr l,
   {
   case LEXST_ID:
     token_type = TT_NS_ID;
-    if (ss_equal_chr(&ss, "run"))
+    if (spans_ss_equal_chrp(&ss, "run"))
       token_type = TT_KW_RUN;
-    else if (ss_equal_chr(&ss, "call"))
+    else if (spans_ss_equal_chrp(&ss, "call"))
       token_type = TT_KW_CALL;
-    else if (ss_equal_chr(&ss, "chain"))
+    else if (spans_ss_equal_chrp(&ss, "chain"))
       token_type = TT_KW_CHAIN;
-    else if (ss_equal_chr(&ss, "return"))
+    else if (spans_ss_equal_chrp(&ss, "return"))
       token_type = TT_KW_RETURN;
 
-    else if (ss_equal_chr(&ss, "common"))
+    else if (spans_ss_equal_chrp(&ss, "common"))
       token_type = TT_KW_COMMON;
 
-    else if (ss_equal_chr(&ss, "declare"))
+    else if (spans_ss_equal_chrp(&ss, "declare"))
       token_type = TT_KW_DECLARE;
-    else if (ss_equal_chr(&ss, "def"))
+    else if (spans_ss_equal_chrp(&ss, "def"))
       token_type = TT_KW_DEF;
 
-    else if (ss_equal_chr(&ss, "do"))
+    else if (spans_ss_equal_chrp(&ss, "do"))
       token_type = TT_KW_DO;
-    else if (ss_equal_chr(&ss, "to"))
+    else if (spans_ss_equal_chrp(&ss, "to"))
       token_type = TT_KW_TO;
-    else if (ss_equal_chr(&ss, "until"))
+    else if (spans_ss_equal_chrp(&ss, "until"))
       token_type = TT_KW_UNTIL;
 
-    else if (ss_equal_chr(&ss, "if"))
+    else if (spans_ss_equal_chrp(&ss, "if"))
       token_type = TT_KW_IF;
-    else if (ss_equal_chr(&ss, "else"))
+    else if (spans_ss_equal_chrp(&ss, "else"))
       token_type = TT_KW_ELSE;
-    else if (ss_equal_chr(&ss, "elseif"))
+    else if (spans_ss_equal_chrp(&ss, "elseif"))
       token_type = TT_KW_ELSEIF;
-    else if (ss_equal_chr(&ss, "then"))
+    else if (spans_ss_equal_chrp(&ss, "then"))
       token_type = TT_KW_THEN;
 
-    else if (ss_equal_chr(&ss, "case"))
+    else if (spans_ss_equal_chrp(&ss, "case"))
       token_type = TT_KW_CASE;
 
-    else if (ss_equal_chr(&ss, "end"))
+    else if (spans_ss_equal_chrp(&ss, "end"))
       token_type = TT_KW_END;
-    else if (ss_equal_chr(&ss, "enddef"))
+    else if (spans_ss_equal_chrp(&ss, "enddef"))
       token_type = TT_KW_ENDDEF;
 
-    else if (ss_equal_chr(&ss, "exit"))
+    else if (spans_ss_equal_chrp(&ss, "exit"))
       token_type = TT_KW_EXIT;
 
-    else if (ss_equal_chr(&ss, "for"))
+    else if (spans_ss_equal_chrp(&ss, "for"))
       token_type = TT_KW_FOR;
-    else if (ss_equal_chr(&ss, "while"))
+    else if (spans_ss_equal_chrp(&ss, "while"))
       token_type = TT_KW_WHILE;
-    else if (ss_equal_chr(&ss, "loop"))
+    else if (spans_ss_equal_chrp(&ss, "loop"))
       token_type = TT_KW_LOOP;
 
-    else if (ss_equal_chr(&ss, "next"))
+    else if (spans_ss_equal_chrp(&ss, "next"))
       token_type = TT_KW_NEXT;
-    else if (ss_equal_chr(&ss, "stop"))
+    else if (spans_ss_equal_chrp(&ss, "stop"))
       token_type = TT_KW_STOP;
 
-    else if (ss_equal_chr(&ss, "gosub"))
+    else if (spans_ss_equal_chrp(&ss, "gosub"))
       token_type = TT_KW_GOSUB;
-    else if (ss_equal_chr(&ss, "goto"))
+    else if (spans_ss_equal_chrp(&ss, "goto"))
       token_type = TT_KW_GOTO;
 
-    else if (ss_equal_chr(&ss, "rem"))
+    else if (spans_ss_equal_chrp(&ss, "rem"))
       token_type = TT_KW_REM;
 
-    else if (ss_equal_chr(&ss, "select"))
+    else if (spans_ss_equal_chrp(&ss, "select"))
       token_type = TT_KW_SELECT;
 
-    else if (ss_equal_chr(&ss, "sub"))
+    else if (spans_ss_equal_chrp(&ss, "sub"))
       token_type = TT_KW_SUB;
-    else if (ss_equal_chr(&ss, "wend"))
+    else if (spans_ss_equal_chrp(&ss, "wend"))
       token_type = TT_KW_WEND;
 
-    else if (ss_equal_chr(&ss, "beep"))
+    else if (spans_ss_equal_chrp(&ss, "beep"))
       token_type = TT_KW_BEEP;
-    else if (ss_equal_chr(&ss, "play"))
+    else if (spans_ss_equal_chrp(&ss, "play"))
       token_type = TT_KW_PLAY;
-    else if (ss_equal_chr(&ss, "sound"))
+    else if (spans_ss_equal_chrp(&ss, "sound"))
       token_type = TT_KW_SOUND;
 
-    else if (ss_equal_chr(&ss, "clear"))
+    else if (spans_ss_equal_chrp(&ss, "clear"))
       token_type = TT_KW_CLEAR;
-    else if (ss_equal_chr(&ss, "cls"))
+    else if (spans_ss_equal_chrp(&ss, "cls"))
       token_type = TT_KW_CLS;
 
-    else if (ss_equal_chr(&ss, "close"))
+    else if (spans_ss_equal_chrp(&ss, "close"))
       token_type = TT_KW_CLOSE;
-    else if (ss_equal_chr(&ss, "open"))
+    else if (spans_ss_equal_chrp(&ss, "open"))
       token_type = TT_KW_OPEN;
 
-    else if (ss_equal_chr(&ss, "color"))
+    else if (spans_ss_equal_chrp(&ss, "color"))
       token_type = TT_KW_COLOR;
-    else if (ss_equal_chr(&ss, "paint"))
+    else if (spans_ss_equal_chrp(&ss, "paint"))
       token_type = TT_KW_PAINT;
-    else if (ss_equal_chr(&ss, "pallete"))
+    else if (spans_ss_equal_chrp(&ss, "pallete"))
       token_type = TT_KW_PALLETE;
-    else if (ss_equal_chr(&ss, "pmap"))
+    else if (spans_ss_equal_chrp(&ss, "pmap"))
       token_type = TT_KW_PMAP;
-    else if (ss_equal_chr(&ss, "preset"))
+    else if (spans_ss_equal_chrp(&ss, "preset"))
       token_type = TT_KW_PRESET;
-    else if (ss_equal_chr(&ss, "pset"))
+    else if (spans_ss_equal_chrp(&ss, "pset"))
       token_type = TT_KW_PSET;
 
-    else if (ss_equal_chr(&ss, "draw"))
+    else if (spans_ss_equal_chrp(&ss, "draw"))
       token_type = TT_KW_DRAW;
-    else if (ss_equal_chr(&ss, "line"))
+    else if (spans_ss_equal_chrp(&ss, "line"))
       token_type = TT_KW_LINE;
 
-    else if (ss_equal_chr(&ss, "screen"))
+    else if (spans_ss_equal_chrp(&ss, "screen"))
       token_type = TT_KW_SCREEN;
-    else if (ss_equal_chr(&ss, "view"))
+    else if (spans_ss_equal_chrp(&ss, "view"))
       token_type = TT_KW_VIEW;
-    else if (ss_equal_chr(&ss, "window"))
+    else if (spans_ss_equal_chrp(&ss, "window"))
       token_type = TT_KW_WINDOW;
-    else if (ss_equal_chr(&ss, "width"))
+    else if (spans_ss_equal_chrp(&ss, "width"))
       token_type = TT_KW_WIDTH;
 
-    else if (ss_equal_chr(&ss, "com"))
+    else if (spans_ss_equal_chrp(&ss, "com"))
       token_type = TT_KW_COM;
-    else if (ss_equal_chr(&ss, "data"))
+    else if (spans_ss_equal_chrp(&ss, "data"))
       token_type = TT_KW_DATA;
-    else if (ss_equal_chr(&ss, "error"))
+    else if (spans_ss_equal_chrp(&ss, "error"))
       token_type = TT_KW_ERROR;
 
-    else if (ss_equal_chr(&ss, "field"))
+    else if (spans_ss_equal_chrp(&ss, "field"))
       token_type = TT_KW_FIELD;
-    else if (ss_equal_chr(&ss, "locate"))
+    else if (spans_ss_equal_chrp(&ss, "locate"))
       token_type = TT_KW_LOCATE;
 
-    else if (ss_equal_chr(&ss, "get"))
+    else if (spans_ss_equal_chrp(&ss, "get"))
       token_type = TT_KW_GET;
-    else if (ss_equal_chr(&ss, "input"))
+    else if (spans_ss_equal_chrp(&ss, "input"))
       token_type = TT_KW_INPUT;
-    else if (ss_equal_chr(&ss, "key"))
+    else if (spans_ss_equal_chrp(&ss, "key"))
       token_type = TT_KW_KEY;
 
-    else if (ss_equal_chr(&ss, "lprint"))
+    else if (spans_ss_equal_chrp(&ss, "lprint"))
       token_type = TT_KW_LPRINT;
 
-    else if (ss_equal_chr(&ss, "out"))
+    else if (spans_ss_equal_chrp(&ss, "out"))
       token_type = TT_KW_OUT;
 
-    else if (ss_equal_chr(&ss, "print"))
+    else if (spans_ss_equal_chrp(&ss, "print"))
       token_type = TT_KW_PRINT;
-    else if (ss_equal_chr(&ss, "put"))
+    else if (spans_ss_equal_chrp(&ss, "put"))
       token_type = TT_KW_PUT;
 
-    else if (ss_equal_chr(&ss, "randomize"))
+    else if (spans_ss_equal_chrp(&ss, "randomize"))
       token_type = TT_KW_RANDOMIZE;
 
-    else if (ss_equal_chr(&ss, "read"))
+    else if (spans_ss_equal_chrp(&ss, "read"))
       token_type = TT_KW_READ;
-    else if (ss_equal_chr(&ss, "write"))
+    else if (spans_ss_equal_chrp(&ss, "write"))
       token_type = TT_KW_WRITE;
 
-    else if (ss_equal_chr(&ss, "restore"))
+    else if (spans_ss_equal_chrp(&ss, "restore"))
       token_type = TT_KW_RESTORE;
 
-    else if (ss_equal_chr(&ss, "sleep"))
+    else if (spans_ss_equal_chrp(&ss, "sleep"))
       token_type = TT_KW_SLEEP;
 
-    else if (ss_equal_chr(&ss, "as"))
+    else if (spans_ss_equal_chrp(&ss, "as"))
       token_type = TT_KW_AS;
-    else if (ss_equal_chr(&ss, "const"))
+    else if (spans_ss_equal_chrp(&ss, "const"))
       token_type = TT_KW_CONST;
-    else if (ss_equal_chr(&ss, "static"))
+    else if (spans_ss_equal_chrp(&ss, "static"))
       token_type = TT_KW_STATIC;
-    else if (ss_equal_chr(&ss, "shared"))
+    else if (spans_ss_equal_chrp(&ss, "shared"))
       token_type = TT_KW_SHARED;
 
-    else if (ss_equal_chr(&ss, "erase"))
+    else if (spans_ss_equal_chrp(&ss, "erase"))
       token_type = TT_KW_ERASE;
 
-    else if (ss_equal_chr(&ss, "dim"))
+    else if (spans_ss_equal_chrp(&ss, "dim"))
       token_type = TT_KW_DIM;
-    else if (ss_equal_chr(&ss, "redim"))
+    else if (spans_ss_equal_chrp(&ss, "redim"))
       token_type = TT_KW_REDIM;
 
-    else if (ss_equal_chr(&ss, "type"))
+    else if (spans_ss_equal_chrp(&ss, "type"))
       token_type = TT_KW_TYPE;
 
-    else if (ss_equal_chr(&ss, "defdbl"))
+    else if (spans_ss_equal_chrp(&ss, "defdbl"))
       token_type = TT_KW_DEFDBL;
-    else if (ss_equal_chr(&ss, "defint"))
+    else if (spans_ss_equal_chrp(&ss, "defint"))
       token_type = TT_KW_DEFINT;
-    else if (ss_equal_chr(&ss, "deflng"))
+    else if (spans_ss_equal_chrp(&ss, "deflng"))
       token_type = TT_KW_DEFLNG;
-    else if (ss_equal_chr(&ss, "defsng"))
+    else if (spans_ss_equal_chrp(&ss, "defsng"))
       token_type = TT_KW_DEFSNG;
-    else if (ss_equal_chr(&ss, "defstr"))
+    else if (spans_ss_equal_chrp(&ss, "defstr"))
       token_type = TT_KW_DEFSTR;
 
-    else if (ss_equal_chr(&ss, "cdbl"))
+    else if (spans_ss_equal_chrp(&ss, "cdbl"))
       token_type = TT_KW_CDBL;
-    else if (ss_equal_chr(&ss, "cint"))
+    else if (spans_ss_equal_chrp(&ss, "cint"))
       token_type = TT_KW_CINT;
-    else if (ss_equal_chr(&ss, "clng"))
+    else if (spans_ss_equal_chrp(&ss, "clng"))
       token_type = TT_KW_CLNG;
-    else if (ss_equal_chr(&ss, "cos"))
+    else if (spans_ss_equal_chrp(&ss, "cos"))
       token_type = TT_KW_COS;
-    else if (ss_equal_chr(&ss, "csng"))
+    else if (spans_ss_equal_chrp(&ss, "csng"))
       token_type = TT_KW_CSNG;
-    else if (ss_equal_chr(&ss, "csrlin"))
+    else if (spans_ss_equal_chrp(&ss, "csrlin"))
       token_type = TT_KW_CSRLIN;
 
-    else if (ss_equal_chr(&ss, "abs"))
+    else if (spans_ss_equal_chrp(&ss, "abs"))
       token_type = TT_KW_ABS;
-    else if (ss_equal_chr(&ss, "atn"))
+    else if (spans_ss_equal_chrp(&ss, "atn"))
       token_type = TT_KW_ATN;
-    else if (ss_equal_chr(&ss, "exp"))
+    else if (spans_ss_equal_chrp(&ss, "exp"))
       token_type = TT_KW_EXP;
-    else if (ss_equal_chr(&ss, "fix"))
+    else if (spans_ss_equal_chrp(&ss, "fix"))
       token_type = TT_KW_FIX;
-    else if (ss_equal_chr(&ss, "int"))
+    else if (spans_ss_equal_chrp(&ss, "int"))
       token_type = TT_KW_INT;
-    else if (ss_equal_chr(&ss, "log"))
+    else if (spans_ss_equal_chrp(&ss, "log"))
       token_type = TT_KW_LOG;
-    else if (ss_equal_chr(&ss, "sgn"))
+    else if (spans_ss_equal_chrp(&ss, "sgn"))
       token_type = TT_KW_SGN;
-    else if (ss_equal_chr(&ss, "sin"))
+    else if (spans_ss_equal_chrp(&ss, "sin"))
       token_type = TT_KW_SIN;
-    else if (ss_equal_chr(&ss, "sqr"))
+    else if (spans_ss_equal_chrp(&ss, "sqr"))
       token_type = TT_KW_SQR;
-    else if (ss_equal_chr(&ss, "tan"))
+    else if (spans_ss_equal_chrp(&ss, "tan"))
       token_type = TT_KW_TAN;
 
-    else if (ss_equal_chr(&ss, "asc"))
+    else if (spans_ss_equal_chrp(&ss, "asc"))
       token_type = TT_KW_ASC;
-    else if (ss_equal_chr(&ss, "hex$"))
+    else if (spans_ss_equal_chrp(&ss, "hex$"))
       token_type = TT_KW_HEXS;
-    else if (ss_equal_chr(&ss, "oct$"))
+    else if (spans_ss_equal_chrp(&ss, "oct$"))
       token_type = TT_KW_OCTS;
 
-    else if (ss_equal_chr(&ss, "inkey$"))
+    else if (spans_ss_equal_chrp(&ss, "inkey$"))
       token_type = TT_KW_INKEYS;
-    else if (ss_equal_chr(&ss, "instr"))
+    else if (spans_ss_equal_chrp(&ss, "instr"))
       token_type = TT_KW_INSTR;
 
-    else if (ss_equal_chr(&ss, "lcase$"))
+    else if (spans_ss_equal_chrp(&ss, "lcase$"))
       token_type = TT_KW_LCASES;
-    else if (ss_equal_chr(&ss, "ucase$"))
+    else if (spans_ss_equal_chrp(&ss, "ucase$"))
       token_type = TT_KW_UCASES;
 
-    else if (ss_equal_chr(&ss, "left$"))
+    else if (spans_ss_equal_chrp(&ss, "left$"))
       token_type = TT_KW_LEFTS;
-    else if (ss_equal_chr(&ss, "mid$"))
+    else if (spans_ss_equal_chrp(&ss, "mid$"))
       token_type = TT_KW_MIDS;
-    else if (ss_equal_chr(&ss, "right$"))
+    else if (spans_ss_equal_chrp(&ss, "right$"))
       token_type = TT_KW_RIGHTS;
 
-    else if (ss_equal_chr(&ss, "ltrim$"))
+    else if (spans_ss_equal_chrp(&ss, "ltrim$"))
       token_type = TT_KW_LTRIMS;
-    else if (ss_equal_chr(&ss, "rtrim$"))
+    else if (spans_ss_equal_chrp(&ss, "rtrim$"))
       token_type = TT_KW_RTRIMS;
 
-    else if (ss_equal_chr(&ss, "len"))
+    else if (spans_ss_equal_chrp(&ss, "len"))
       token_type = TT_KW_LEN;
 
-    else if (ss_equal_chr(&ss, "space$"))
+    else if (spans_ss_equal_chrp(&ss, "space$"))
       token_type = TT_KW_SPACES;
 
-    else if (ss_equal_chr(&ss, "str$"))
+    else if (spans_ss_equal_chrp(&ss, "str$"))
       token_type = TT_KW_STRS;
-    else if (ss_equal_chr(&ss, "string$"))
+    else if (spans_ss_equal_chrp(&ss, "string$"))
       token_type = TT_KW_STRINGS;
 
-    else if (ss_equal_chr(&ss, "val"))
+    else if (spans_ss_equal_chrp(&ss, "val"))
       token_type = TT_KW_VAL;
 
-    else if (ss_equal_chr(&ss, "eof"))
+    else if (spans_ss_equal_chrp(&ss, "eof"))
       token_type = TT_KW_EOF;
-    else if (ss_equal_chr(&ss, "erl"))
+    else if (spans_ss_equal_chrp(&ss, "erl"))
       token_type = TT_KW_ERL;
-    else if (ss_equal_chr(&ss, "err"))
+    else if (spans_ss_equal_chrp(&ss, "err"))
       token_type = TT_KW_ERR;
-    else if (ss_equal_chr(&ss, "fre"))
+    else if (spans_ss_equal_chrp(&ss, "fre"))
       token_type = TT_KW_FRE;
-    else if (ss_equal_chr(&ss, "inp"))
+    else if (spans_ss_equal_chrp(&ss, "inp"))
       token_type = TT_KW_INP;
-    else if (ss_equal_chr(&ss, "lof"))
+    else if (spans_ss_equal_chrp(&ss, "lof"))
       token_type = TT_KW_LOF;
-    else if (ss_equal_chr(&ss, "pos"))
+    else if (spans_ss_equal_chrp(&ss, "pos"))
       token_type = TT_KW_POS;
 
-    else if (ss_equal_chr(&ss, "point"))
+    else if (spans_ss_equal_chrp(&ss, "point"))
       token_type = TT_KW_POINT;
-    else if (ss_equal_chr(&ss, "peek"))
+    else if (spans_ss_equal_chrp(&ss, "peek"))
       token_type = TT_KW_PEEK;
-    else if (ss_equal_chr(&ss, "peek$"))
+    else if (spans_ss_equal_chrp(&ss, "peek$"))
       token_type = TT_KW_PEEKS;
 
-    else if (ss_equal_chr(&ss, "varptr"))
+    else if (spans_ss_equal_chrp(&ss, "varptr"))
       token_type = TT_KW_VARPTR;
-    else if (ss_equal_chr(&ss, "varseg"))
+    else if (spans_ss_equal_chrp(&ss, "varseg"))
       token_type = TT_KW_VARSEG;
 
-    else if (ss_equal_chr(&ss, "time"))
+    else if (spans_ss_equal_chrp(&ss, "time"))
       token_type = TT_KW_TIME;
-    else if (ss_equal_chr(&ss, "date"))
+    else if (spans_ss_equal_chrp(&ss, "date"))
       token_type = TT_KW_DATE;
 
-    else if (ss_equal_chr(&ss, "and"))
+    else if (spans_ss_equal_chrp(&ss, "and"))
       token_type = TT_KW_AND;
-    else if (ss_equal_chr(&ss, "eqv"))
+    else if (spans_ss_equal_chrp(&ss, "eqv"))
       token_type = TT_KW_EQV;
-    else if (ss_equal_chr(&ss, "imp"))
+    else if (spans_ss_equal_chrp(&ss, "imp"))
       token_type = TT_KW_IMP;
-    else if (ss_equal_chr(&ss, "mod"))
+    else if (spans_ss_equal_chrp(&ss, "mod"))
       token_type = TT_KW_MOD;
-    else if (ss_equal_chr(&ss, "not"))
+    else if (spans_ss_equal_chrp(&ss, "not"))
       token_type = TT_KW_NOT;
-    else if (ss_equal_chr(&ss, "or"))
+    else if (spans_ss_equal_chrp(&ss, "or"))
       token_type = TT_KW_OR;
-    else if (ss_equal_chr(&ss, "xor"))
+    else if (spans_ss_equal_chrp(&ss, "xor"))
       token_type = TT_KW_XOR;
 
-    else if (ss_equal_chr(&ss, "circle"))
+    else if (spans_ss_equal_chrp(&ss, "circle"))
       token_type = TT_KW_CIRCLE;
 
-    else if (ss_equal_chr(&ss, "chdir"))
+    else if (spans_ss_equal_chrp(&ss, "chdir"))
       token_type = TT_KW_CHDIR;
-    else if (ss_equal_chr(&ss, "mkdir"))
+    else if (spans_ss_equal_chrp(&ss, "mkdir"))
       token_type = TT_KW_MKDIR;
-    else if (ss_equal_chr(&ss, "rmdir"))
+    else if (spans_ss_equal_chrp(&ss, "rmdir"))
       token_type = TT_KW_RMDIR;
 
-    else if (ss_equal_chr(&ss, "files"))
+    else if (spans_ss_equal_chrp(&ss, "files"))
       token_type = TT_KW_FILES;
-    else if (ss_equal_chr(&ss, "name"))
+    else if (spans_ss_equal_chrp(&ss, "name"))
       token_type = TT_KW_NAME;
 
-    else if (ss_equal_chr(&ss, "kill"))
+    else if (spans_ss_equal_chrp(&ss, "kill"))
       token_type = TT_KW_KILL;
 
-    else if (ss_equal_chr(&ss, "shell"))
+    else if (spans_ss_equal_chrp(&ss, "shell"))
       token_type = TT_KW_SHELL;
 
     break;
@@ -952,10 +962,10 @@ BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
 
   for (size_t i = 0; i < ltvec->len; i++)
   {
-    if (blexer_ltok_free(&ltvec->ltok_ptr[i]) != 0) return i;
+    if (blexer_ltok_free(&ltvec->ptr[i]) != 0) return i;
   }
 
-  free(ltvec->ltok_ptr);
+  free(ltvec->ptr);
   return 0;
 }
 
