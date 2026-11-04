@@ -47,11 +47,13 @@ Licensed under the GNU General Public License V3.
 #ifndef SPANS_PANIC
 #include <stdio.h>
 #define SPANS_PANIC(message) \
-do {                         \
-  puts("[SPANS PANIC!]");      \
+do                           \
+{                            \
+  puts("[SPANS PANIC!]");    \
   puts(message);             \
   exit(1);                   \
-} while (0)
+}                            \
+while (0)
 #endif
 
 #ifdef __cplusplus
