@@ -73,9 +73,11 @@ typedef enum {
   TT_EQEQ,
 
   TT_PLUS,
+  TT_INCR,
   TT_ADDEQ,
 
   TT_MINUS,
+  TT_DECR,
   TT_SUBEQ,
 
   TT_STAR,
@@ -95,12 +97,7 @@ typedef enum {
   TT_EXCL,
 
   TT_L_BRACK,
-  TT_LESSEQ,
-
   TT_R_BRACK,
-  TT_GREATEQ,
-
-  TT_NOT,
 
   TT_COMMA,
   TT_PERIOD,
@@ -117,7 +114,12 @@ typedef enum {
   TT_QUEST,
 
   TT_L_ANG_BRACK,
+  TT_LESSEQ,
+
   TT_R_ANG_BRACK,
+  TT_GREATEQ,
+
+  TT_NOT,
 
   TT_BACKSLASH,
   TT_NEWLINE,
@@ -381,6 +383,23 @@ typedef enum
 blexer_lexer_state_t;
 
 /*
+The comparison helper functions for the token types.
+
+I believe these functions already explain themselves, so I will not
+be putting any docstrings for them here.
+*/
+
+BLEXER_STATIC inline int blexer_tt_is_un_op(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_bin_op(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_op(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_comparison_op(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_nonsymbolic(const blexer_tokentype_t tt);
+
+/*
 This function validates the lexer token vector if it's somehow
 not valid. Though if these functions somehow fail, or you
 manually manipulated them, you can never be too sure.
@@ -482,6 +501,13 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 #define lexer_state_t blexer_lexer_state_t
 
 /* -- BLEXER STATIC -- */
+/* - Comparison - */
+#define tt_is_un_op(tt)         blexer_tt_is_un_op(tt)
+#define tt_is_bin_op(tt)        blexer_tt_is_bin_op(tt)
+#define tt_is_op(tt)            blexer_tt_is_op(tt)
+#define tt_is_comparison_op(tt) blexer_tt_is_comparison_op(tt)
+#define tt_is_nonsymbolic(tt)   blexer_tt_is_nonsymbolic(tt)
+
 /* - Creation - */
 #define ltvec_creat()                                 blexer_ltvec_creat()
 
@@ -508,7 +534,32 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 #define BLEXER_LTVEC_INITSZ 8
 #endif
 
-BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
+BLEXER_STATIC inline int blexer_tt_is_un_op(const blexer_tokentype_t tt)
+{
+  return (tt >= TT_PLUS && tt <= TT_INCR) || (tt >= TT_MINUS && tt <= TT_DECR);
+}
+
+BLEXER_STATIC inline int blexer_tt_is_bin_op(const blexer_tokentype_t tt)
+{
+  return tt == TT_EQUAL || tt == TT_PLUS || (tt >= TT_PLUS && tt <= TT_MINUS) || (tt >= TT_SUBEQ && tt <= TT_DIVEQ);
+}
+
+BLEXER_STATIC inline int blexer_tt_is_op(const blexer_tokentype_t tt)
+{
+  return tt >= TT_EQUAL && tt <= TT_DIVEQ;
+}
+
+BLEXER_STATIC inline int blexer_tt_is_comparison_op(const blexer_tokentype_t tt)
+{
+  return tt == TT_EQEQ || (tt >= TT_L_ANG_BRACK && tt <= TT_NOT);
+}
+
+BLEXER_STATIC inline int blexer_tt_is_nonsymbolic(const blexer_tokentype_t tt)
+{
+  return tt >= TT_NS_ID && tt <= TT_NS_STRING;
+}
+
+BLEXER_STATIC inline int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
 {
   if (!ltvec)
     return 0;
@@ -1164,6 +1215,12 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         i++;
         token_type = TT_ADDEQ;
       }
+      else if (l->str.__s[i + 1] '+')
+      {
+        len++;
+        i++;
+        token_type = TT_INCR;
+      }
       break;
 
     case '-':
@@ -1173,6 +1230,12 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         len++;
         i++;
         token_type = TT_SUBEQ;
+      }
+      else if (l->str.__s[i + 1] == '-')
+      {
+        len++;
+        i++; 
+        token_type = TT_DECR;
       }
       break;
 
