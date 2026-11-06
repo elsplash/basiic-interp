@@ -16,7 +16,7 @@ Licensed under the GNU General Public License V3.
 #ifndef SPANS_DEF
 #define SPANS_DEF
 
-#include "../macros.h"
+#include "macros.h"
 #include <stdlib.h>
 
 #ifndef SPANS_STR_LIB
@@ -525,7 +525,7 @@ SPANS_STR_LIB int spans_str_reserve(spans_str_t *restr s, const size_t sz)
   return 0;
 }
 
-SPANS_STR_LIB int spans_str_deflate(spacs_str_t *restr s)
+SPANS_STR_LIB int spans_str_deflate(spans_str_t *restr s)
 {
   if (!s) return -1;
   if (s->len * 4 < s->cap)

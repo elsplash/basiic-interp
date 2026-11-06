@@ -414,7 +414,7 @@ This returns the values of:
  0 - ltvec is NULL>
  1 - No issues.
 */
-BLEXER_STATIC int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec);
+BLEXER_STATIC inline int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec);
 
 /*
 This function creates an blexer_lextok_vec_t datatype, just for you
@@ -494,7 +494,6 @@ Remember to free the returned value, as it is heap allocated.
 */
 BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *restr l,
                                                  const size_t                  l_idx);
-
 #define tokentype_t   blexer_tokentype_t
 #define lextoken_t    blexer_lextoken_t
 #define lextok_vec_t  blexer_lextok_vec_t
@@ -1215,7 +1214,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         i++;
         token_type = TT_ADDEQ;
       }
-      else if (l->str.__s[i + 1] '+')
+      else if (l->str.__s[i + 1] == '+')
       {
         len++;
         i++;
