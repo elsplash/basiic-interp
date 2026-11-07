@@ -400,6 +400,31 @@ BLEXER_STATIC inline int blexer_tt_is_comparison_op(const blexer_tokentype_t tt)
 BLEXER_STATIC inline int blexer_tt_is_nonsymbolic(const blexer_tokentype_t tt);
 
 /*
+These sets of functions define the operator levels of qBasic, though
+I'm basing this on intuition not on any documentation.
+
+The levels means as follows:
+0 - HIGHEST PRECEDENCE, for example, the assignment, and
+    mutate and assign operators.
+
+1 - HIGH PRECEDENCE, these are for the comparison operators, and
+the highest arithmetic precedence, like parenthesises.
+
+2 - MID PRECEDENCE, these are arithmetic operators that take
+    more precedence like the multiplication symbol.
+
+3 - LOW PRECEDENCE, these are the rest of the arithmetic operators.
+*/
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_0(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_1(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_2(const blexer_tokentype_t tt);
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_3(const blexer_tokentype_t tt);
+
+/*
 This function validates the lexer token vector if it's somehow
 not valid. Though if these functions somehow fail, or you
 manually manipulated them, you can never be too sure.
@@ -411,7 +436,7 @@ This returns the values of:
 
 -2 - ltvec->len is more than ltvec->cap
 -1 - ltvec->ptr is NULL.
- 0 - ltvec is NULL>
+ 0 - ltvec is NULL.
  1 - No issues.
 */
 BLEXER_STATIC inline int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec);
@@ -507,6 +532,12 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 #define tt_is_comparison_op(tt) blexer_tt_is_comparison_op(tt)
 #define tt_is_nonsymbolic(tt)   blexer_tt_is_nonsymbolic(tt)
 
+/* Operator levels */
+#define tt_is_op_lvl_0(tt) blexer_tt_is_op_lvl_0(tt)
+#define tt_is_op_lvl_1(tt) blexer_tt_is_op_lvl_1(tt)
+#define tt_is_op_lvl_2(tt) blexer_tt_is_op_lvl_2(tt)
+#define tt_is_op_lvl_3(tt) blexer_tt_is_op_lvl_3(tt)
+
 /* - Creation - */
 #define ltvec_creat()                                 blexer_ltvec_creat()
 
@@ -535,7 +566,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 
 BLEXER_STATIC inline int blexer_tt_is_un_op(const blexer_tokentype_t tt)
 {
-  return (tt >= TT_PLUS && tt <= TT_INCR) || (tt >= TT_MINUS && tt <= TT_DECR);
+  return tt == TT_PLUS || tt == TT_INCR || tt == TT_MINUS || tt == TT_DECR;
 }
 
 BLEXER_STATIC inline int blexer_tt_is_bin_op(const blexer_tokentype_t tt)
@@ -557,6 +588,23 @@ BLEXER_STATIC inline int blexer_tt_is_nonsymbolic(const blexer_tokentype_t tt)
 {
   return tt >= TT_NS_ID && tt <= TT_NS_STRING;
 }
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_0(const blexer_tokentype_t tt)
+{
+  return tt == TT_EQUAL;
+}
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_1(const blexer_tokentype_t tt)
+{
+  return blexer_tt_is_comparison_op(tt) || ();
+}
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_2(const blexer_tokentype_t tt)
+{
+  return tt >=;
+}
+
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_3(const blexer_tokentype_t tt);
 
 BLEXER_STATIC inline int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
 {
@@ -1018,6 +1066,7 @@ BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
   }
 
   free(ltvec->ptr);
+  ltvec->ptr = NULL;
   return 0;
 }
 
