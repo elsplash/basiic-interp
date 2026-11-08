@@ -13,6 +13,8 @@ Licensed under the GNU General Public License V3.
 #ifndef BLEXER_DEF
 #define BLEXER_DEF
 
+#include "macros.h"
+
 /* NOTE ABOUT PREFIXES:
 I prefer the prefixes be used anyway, just for the sake of
 consistency.
@@ -23,8 +25,7 @@ This is so we know which struct/enum/function is from where.
 #define SPANS_IMPL
 #endif
 
-#include "macros.h"
-#include "spans.h"
+#include "lexer/spans.h"
 
 #ifndef BLEXER_LIB
 #define BLEXER_LIB extern
@@ -106,10 +107,6 @@ typedef enum {
   TT_COLON,
 
   TT_AMPERSAND,
-  TT_ANDAND,
-
-  TT_BAR,
-  TT_OROR,
 
   TT_QUEST,
 
@@ -340,6 +337,9 @@ typedef enum {
   TT_KW_KILL,
 
   TT_KW_SHELL,
+
+  /* - Error - */
+  TT_ERR,
 }
 blexer_tokentype_t;
 
@@ -596,15 +596,18 @@ BLEXER_STATIC inline int blexer_tt_is_op_lvl_0(const blexer_tokentype_t tt)
 
 BLEXER_STATIC inline int blexer_tt_is_op_lvl_1(const blexer_tokentype_t tt)
 {
-  return blexer_tt_is_comparison_op(tt) || ();
+  return blexer_tt_is_comparison_op(tt);
 }
 
 BLEXER_STATIC inline int blexer_tt_is_op_lvl_2(const blexer_tokentype_t tt)
 {
-  return tt >=;
+  return tt == TT_STAR || tt == TT_SLASH || tt == TT_PERCENT;
 }
 
-BLEXER_STATIC inline int blexer_tt_is_op_lvl_3(const blexer_tokentype_t tt);
+BLEXER_STATIC inline int blexer_tt_is_op_lvl_3(const blexer_tokentype_t tt)
+{
+  return tt == TT_PLUS || tt == TT_MINUS;
+}
 
 BLEXER_STATIC inline int blexer_ltvec_validate(const blexer_lextok_vec_t *restr ltvec)
 {
@@ -1035,6 +1038,7 @@ BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t    *restr l,
     break;
 
   default:
+    token_type = TT_ERR;
     break;
   }
 
@@ -1376,22 +1380,6 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 
     case '&':
       token_type = TT_AMPERSAND;
-      if (l->str.__s[i + 1] == '&')
-      {
-        len++;
-        i++;
-        token_type = TT_ANDAND;
-      }
-      break;
-
-    case '|':
-      token_type = TT_BAR;
-      if (l->str.__s[i + 1] == '|')
-      {
-        len++;
-        i++;
-        token_type = TT_OROR;
-      }
       break;
 
     case '?':
@@ -1437,8 +1425,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       break;
 
     default:
-      /* NOTE: We are implicitly making this an identifier. */
-      break;
+      return out;
     }
     const strspan_t ss = spans_ss_init(l, l_idx, start, len);
     const blexer_lextoken_t ltok = (blexer_lextoken_t) {
