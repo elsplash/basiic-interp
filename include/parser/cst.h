@@ -4,7 +4,7 @@ COPYRIGHT (C) 2026 ELSPLASH (electrsplash@gmail.com)
 
 A simple CST Parsing header library.
 
-This will parse the tokens from "lexer/lexer.h".
+This will parse the tokens from "lexer/blexer.h".
 So it can be parsed into an AST later on.
 
 -------------------------------------------------
@@ -357,6 +357,11 @@ This function will parse the binary operators, this will start
 in a described binary operator level, and if the detected
 next operator is not an operator, or is not the same precedence
 level, it will exit with a return code.
+
+This function expects that you have checked that the upcoming
+lexer token is an operator, if it isn't it will return
+prematurely with an error node, or if CST_ASSERT is not disabled
+it will be caught by said assert.
 
 The precedence levels are as follows:
 -1 - NOT SET, will detect automatically what the operator will
@@ -1258,8 +1263,8 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
   CST_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is not valid in cst_parse_un_op_cst().");
   if (!blexer_ltvec_validate(ltvec))
     return -1;
-  CST_ASSERT(expr, "expr is NULL in cst_parse_un_op_cst().");
-  if (!expr)
+  CST_ASSERT(main_node, "expr is NULL in cst_parse_un_op_cst().");
+  if (!main_node)
     return -2;
   CST_ASSERT(ltstart, "ltstart is NULL in cst_parse_un_op_cst().");
   if (!ltstart)
@@ -1326,6 +1331,7 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
   if (!has_parsed_unary) goto ParseUnary;
 
+  return 1;
 }
 
 CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
@@ -1333,14 +1339,52 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
                                        cst_cstnode_t       *restr lhs,
                                        size_t              *restr ltstart)
 {
+  CST_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is invalid in cst_parse_bin_op_cst().");
+  CST_ASSERT(lhs, "lhs is NULL in cst_parse_bin_op_cst().");
+  CST_ASSERT(ltstart, "ltstart is NULL in cst_parse_bin_op_cst().");
+
+  const blexer_lextoken_t op = blexer_ltvec_fetch(ltvec, *ltstart);
+
+  if (!blexer_tt_is_bin_op(op.type)) /* bm:current */
+    return -1;
+
+  if (bin_op_lvl == -1)
+  {
+    int new_bin_op_lvl = 0;
+
+    if (blexer_tt_is_op_lvl_0(op.type))
+      return cst_parse_bin_op_cst(ltvec, new_bin_op_lvl, lhs, ltstart);
+
+    new_bin_op_lvl++;
+
+    if (blexer_tt_is_op_lvl_1(op.type))
+      return cst_parse_bin_op_cst(ltvec, new_bin_op_lvl, lhs, ltstart); 
+
+    new_bin_op_lvl++;
+
+    if (blexer_tt_is_op_lvl_2(op.type))
+      return cst_parse_bin_op_cst(ltvec, new_bin_op_lvl, lhs, ltstart); 
+
+    new_bin_op_lvl++;
+
+    return cst_parse_bin_op_cst(ltvec, new_bin_op_lvl, lhs, ltstart); 
+  }
+
   // ...
+
+  (*ltstart)++;
+  cst_consume_cst_if_space(ltvec, &lhs.span, ltstart);
+
+  const cst_cstnode_t expr = cst_parse_one_expr_cst(ltvec, ltstart);
+
   return 1;
 }
 
 CST_LIB cst_cstnode_t cst_parse_one_expr_cst(const blexer_lextok_vec_t *restr ltvec,
                                                    size_t              *restr ltstart)
 {
-  CST_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is NULL in cst_parse_expr_cst().");
+  CST_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is invalid in cst_parse_one_expr_cst().");
+  CST_ASSERT(ltstart, "ltstart is NULL in cst_parse_one_expr_cst().");
   CST_ASSERT(ltvec->len <= *ltstart, "ltstart is out of bounds in ltvec. (cst_parse_expr_cst())");
 
   const blexer_lextoken_t ltok = ltvec->ptr[*ltstart];
@@ -1484,7 +1528,7 @@ CST_LIB int cst_parse_multiple_expr_cst(const blexer_lextok_vec_t *restr ltvec,
   if (blexer_tt_is_bin_op(ltok.type))
   {
   }
-  else (blexer_tt_is_un_op(ltok.type))
+  else if (blexer_tt_is_un_op(ltok.type))
   {}
 
   return 1;
