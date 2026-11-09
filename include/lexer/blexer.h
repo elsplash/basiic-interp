@@ -13,6 +13,8 @@ Licensed under the GNU General Public License V3.
 #ifndef BLEXER_DEF
 #define BLEXER_DEF
 
+#define BLEXER_IMPL
+
 #include "macros.h"
 
 /* NOTE ABOUT PREFIXES:
@@ -503,9 +505,9 @@ This function tokenizes the special logic for strings in qBasic, though
 it has to know where it should start first.
 */
 BLEXER_LIB blexer_lextoken_t blexer_tokenize_string(const spans_linespan_t *restr l,
-                                                 const size_t                  l_idx,
-                                                 const size_t                  start,
-                                                       size_t           *restr len);
+                                                    const size_t                  l_idx,
+                                                    const size_t                  start,
+                                                          size_t           *restr len);
 
 /*
 This function is supposed to be the main tokenizer, so it should
@@ -518,7 +520,24 @@ for you to inline yourself.
 Remember to free the returned value, as it is heap allocated.
 */
 BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *restr l,
-                                                 const size_t                  l_idx);
+                                                    const size_t                  l_idx);
+
+/*
+This function will check if there are any errors, if so it will
+print the string span in the token with the error.
+
+This takes O(n) time complexity.
+
+The return codes are:
+-3 - Failed to fetch line span in line span table.
+-2 - Failed to get string span display.
+-1 - ltvec is invalid. This is BLEXER_ASSERTed in the code.
+ 0 - No issues.
+ N - The amount of syntax errors detected.
+*/
+BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
+                                  const blexer_lextok_vec_t *restr ltvec);
+
 #define tokentype_t   blexer_tokentype_t
 #define lextoken_t    blexer_lextoken_t
 #define lextok_vec_t  blexer_lextok_vec_t
@@ -1443,6 +1462,44 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
   if (len > 0) blexer_fetch_n_push(l, &out, stat, l_idx, start, len);
 
   return out;
+}
+
+BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
+                                  const blexer_lextok_vec_t *restr ltvec)
+{
+  BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is invalid in blexer_detect_errs");
+  if (blexer_ltvec_validate(ltvec))
+    return -1;
+
+  int rval = 0;
+
+  for (size_t i = 0; i < ltvec->len; i++)
+  {
+    const blexer_lextoken_t ltok = blexer_ltvec_fetch(ltvec, i);
+
+    if (ltok.type == TT_ERR)
+    {
+      rval += 1;
+
+      char *display = spans_ss_display(lt, &ltok.span, '^');
+      if (!display) return -2;
+
+      const spans_linespan_t *ls = spans_ls_table_fetch(lt, ltok.span.line_idx);
+      if (!ls) return -3;
+
+      printf("[ERROR] Syntax error! Unexpected symbol:\n"
+             " --> %s:%zu:%zu\n"
+             "%s <- Is not a valid symbol.\n",
+             ls->filename,
+             ls->num,
+             ltok.span.clmn,
+             display);
+
+      free(display);
+    }
+  }
+
+  return rval;
 }
 
 #endif /* BLEXER_IMPL */
