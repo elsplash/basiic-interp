@@ -19,6 +19,7 @@ Licensed under the GNU General Public License V3.
 #define SPANS_IMPL
 
 #include "macros.h"
+
 #include <stdlib.h>
 
 #ifndef SPANS_STR_LIB
@@ -94,7 +95,7 @@ spans_str_t;
 /*
 This struct will be used for extracting the lines from
 a file, and be used for lexing, which is what the
-strspan_t is for.
+spans_strspan_t is for.
 */
 typedef struct
 {
@@ -289,7 +290,7 @@ free it.
 SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s);
 
 /* Frees the haep allocated string within s */
-SPANS_STR_LIB void spans_str_free(spans_str_t *restr s);
+SPANS_STR_LIB int spans_str_free(spans_str_t *restr s);
 
 /*
 Returns a default linespan_t.
@@ -308,7 +309,7 @@ for the line span datatype.
 
 The error codes are as follows:
 */
-SPANS_LS_LIB int spans_ls_vaildate(const spans_linespan_t *restr ls);
+SPANS_LS_LIB int spans_ls_validate(const spans_linespan_t *restr ls);
 
 /*
 Checks if both spans_linespan_t are the same. This also
@@ -329,15 +330,35 @@ SPANS_LS_LIB int spans_ls_equal(const spans_linespan_t *restr a, const spans_lin
 This function returns a table of linespan_t, for later
 lexing. Which is supposed to be indexed from `strspan_t`s
 
+If asserts are disabled, you may need to check if the
+return value is not false, since it can be invalid
+for some edge cases.
+
 The returned value is Nullable, which indicates an error.
 */
 SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath);
 
 /*
+This function will validate the linespan table.
+
+This function will simply check if the vector contents, and the
+variable is valid. Much so similar to the validate line span,
+and string functions.
+
+NOTE: This function does not validate every line span it contains.
+
+Similar to the other validation functions, it will return a
+truthy return integer if it is valid, falsey otherwise.
+
+The return codes mean:
+*/
+SPANS_LS_LIB int spans_ls_table_validate(const spans_ls_table_t *restr lt);
+
+/*
 This function frees the `spans_ls_table_t` datatype, if the
 ltv is heap allocated you may free it yourself.
 */
-SPANS_LS_LIB void spans_ls_table_free(spans_ls_table_t *restr ltv);
+SPANS_LS_LIB int spans_ls_table_free(spans_ls_table_t *restr ltv);
 
 /*
 This fetches the string in l, from start, and with length
@@ -365,7 +386,7 @@ SPANS_LS_STATIC size_t spans_numlen(const size_t i);
 SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l);
 
 /* Frees the string inside the linespan */
-SPANS_LS_LIB void spans_ls_free(spans_linespan_t *restr l);
+SPANS_LS_LIB int spans_ls_free(spans_linespan_t *restr l);
 
 /* Fetches the line span from the table. */
 SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t *restr lt,
@@ -469,7 +490,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #define ls_creat(file_path) spans_ls_creat(file_path)
 
 /* - Verification - */
-#define ls_validate(ls) spans_ls_vaildate(ls)
+#define ls_validate(ls) spans_ls_validate(ls)
 
 /* - Comparion - */
 #define ls_equal(a, b) spans_ls_equal(a, b)
@@ -939,14 +960,24 @@ SPANS_STR_LIB int spans_str_insert_str(      spans_str_t *restr a,
 SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s)
 {
   char *buf = calloc(1, s->len + 1);
+  if (!buf)
+    SPANS_PANIC("Failed to allocate display for string in spans_str_display().");
+
   snprintf(buf, s->len + 1, "%.*s", (int) s->len, s->__s);
+
   return buf;
 }
 
-SPANS_STR_LIB void spans_str_free(spans_str_t *restrict s)
+SPANS_STR_LIB int spans_str_free(spans_str_t *restrict s)
 {
+  SPANS_ASSERT(spans_str_validate(s), "s is invalid in spans_str_free(). (Probable double free)");
+  if (!spans_str_validate(s))
+    return 0;
+
   free(s->__s);
   s->__s = NULL;
+
+  return 1;
 }
 
 SPANS_LS_LIB spans_linespan_t spans_ls_creat(const char *restr filepath)
@@ -969,16 +1000,40 @@ SPANS_LS_LIB spans_linespan_t spans_ls_init(const char *restr span,
   };
 }
 
+SPANS_LS_LIB int spans_ls_validate(const spans_linespan_t *restr ls)
+{
+  if (!ls)
+    return 0;
+
+  int rval = spans_str_validate(&ls->str);
+
+  if (!rval)
+    return rval - 1;
+
+  return 1;
+}
+
 SPANS_LS_LIB int spans_ls_equal(const linespan_t *restr a,
                                 const linespan_t *restr b)
 {
-  if (!a) return -1;
-  if (!b) return -2;
+  SPANS_ASSERT(spans_ls_validate(a), "a is invalid in spans_ls_equal().");
+  if (!spans_ls_validate(a))
+    return -1;
+
+  SPANS_ASSERT(spans_ls_validate(b), "b is invalid in spans_ls_equal().");
+  if (!spans_ls_validate(b))
+    return -2;
+
+  SPANS_ASSERT(a->num == b->num, "a's line number is not equal to b's line number().");
   if (a->num != b->num)
     return -3;
+
   const int rval = spans_str_equal_str(&a->str, &b->str);
+  
+  SPANS_ASSERT(rval < 0, "spans_str_equal_str() failed in spans_ls_equal().");
   if (rval < 0)
-    return rval - 3;
+    return -4;
+
   return rval;
 }
 
@@ -989,7 +1044,9 @@ SPANS_LS_LIB int spans_ls_equal(const linespan_t *restr a,
 SPANS_LS_LIB spans_ls_table_t spans_ls_table_creat(void)
 {
   spans_linespan_t *ptr = malloc(sizeof(*ptr) * SPANS_LS_TABLE_INITSZ);
-  SPANS_ASSERT(ptr, "Failed to allocate in spans_ls_table_creat().");
+  if (!ptr)
+    SPANS_PANIC("Failed to allocate line span table in spans_ls_table_creat().");
+
   return (spans_ls_table_t) {
     .ptr = ptr,
     .len = 0,
@@ -997,16 +1054,32 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_table_creat(void)
   };
 }
 
+SPANS_LS_LIB int spans_ls_table_validate(const spans_ls_table_t *restr lt) {
+  if (!lt)
+    return 0;
+
+  if (!lt->ptr)
+    return -1;
+
+  if (lt->len > lt->cap)
+    return -2;
+
+  return 1;
+}
+
 SPANS_LS_LIB int spans_ls_table_push(spans_ls_table_t *restr lt,
                                      const spans_linespan_t  l)
 {
-  if (!lt) return -1;
+  SPANS_ASSERT(spans_ls_table_validate(lt), "lt is invalid in spans_ls_table_push");
+  if (!spans_ls_table_validate(lt))
+    return -1;
 
   if (lt->len > lt->cap)
   {
     lt->cap *= 2;
 
     void *ptr = realloc(lt->ptr, lt->cap * sizeof(*lt->ptr));
+    SPANS_ASSERT(ptr, "Could not allocate memory for line span table in spans_ls_table_push().");
     if (!ptr)
     {
       lt->cap /= 2;
@@ -1023,13 +1096,17 @@ SPANS_LS_LIB int spans_ls_table_push(spans_ls_table_t *restr lt,
 
 SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath)
 {
+  if (!filepath)
+    SPANS_PANIC("filepath is NULL in spans_ls_fetch_file().");
+
   spans_ls_table_t lt = spans_ls_table_creat();
   
   FILE* f = fopen(filepath, "rb");
+  SPANS_ASSERT(f, "Failed to open filepath in spans_ls_fetch_file().");
   if (!f)
   {
-    spans_ls_table_free(&lt);
-    SPANS_PANIC("Failed to open file.");
+    lt.ptr = NULL;
+    return lt; /* Returns an invalid ls_table for the caller to check. */
   }
 
   size_t            lnum    = 1;
@@ -1040,11 +1117,13 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath)
   while (cur != EOF)
   {
     ls_push.str = spans_str_creat();
+
     while ((cur - fgetc(f)) != EOF || cur != '\n')
     {
       if (spans_str_pushr_chr(&ls_push.str, (char) cur) < 0)
         SPANS_PANIC("Failed to push character in spans_ls_fetch_file().");
     }
+
     ls_push.num = lnum;
     lnum++;
 
@@ -1058,11 +1137,19 @@ SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
                                        const size_t                  start,
                                        const size_t                  len)
 {
-  if (l->str.len < start || l->str.len < start + len) return NULL;
+  if (!spans_ls_validate(l))
+    return NULL;
+
+  if (l->str.len < start)
+    return NULL;
+
+  if (l->str.len <= start + len)
+    return NULL;
 
   char *o = calloc(1, len + 1);
 
-  if (!o) return NULL;
+  if (!o)
+    SPANS_PANIC("Failed to allocate memory for line span section in spans_ls_fetch_self().");
 
   memcpy(o, l->str.__s + start, len);
 
@@ -1072,7 +1159,13 @@ SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
 SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *restr lt,
                                                           const size_t               l_idx)
 {
-  if (lt->len <= l_idx) return NULL;
+  SPANS_ASSERT(spans_ls_table_validate(lt), "lt is invalid in spans_ls_table_fetch().");
+  if (!spans_ls_table_validate(lt))
+    return NULL;
+
+  SPANS_ASSERT(lt->len > l_idx, "l_idx is out of bounds of lt in spans_ls_table_fetch().");
+  if (lt->len <= l_idx)
+    return NULL;
 
   return lt->ptr + l_idx;
 }
@@ -1080,9 +1173,11 @@ SPANS_LS_LIB spans_linespan_t* spans_ls_table_fetch(const spans_ls_table_t    *r
 SPANS_LS_STATIC size_t spans_power(const size_t a, const size_t b)
 {
   if (b == 0) return 1L;
+
   size_t o = a;
   for (size_t i = 0; i < b; i++)
     o *= a;
+
   return o;
 }
 
@@ -1100,9 +1195,15 @@ SPANS_LS_STATIC size_t spans_numlen(const size_t i)
 
 SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
 {
+  SPANS_ASSERT(spans_ls_validate(l), "l is invalid in spans_ls_display().");
+  if (!spans_ls_validate(l))
+    return NULL;
+
   const unsigned int buff_sz = spans_numlen(l->num) + l->str.len + 5;
-  char *buff                 = calloc(1, buff_sz);
-  if (!buff) return NULL;
+
+  char *buff = calloc(1, buff_sz);
+  if (!buff)
+    SPANS_PANIC("Failed to allocate buffer in spans_ls_display().");
 
   char *str_display = spans_str_display(&l->str);
   snprintf(buff, buff_sz,
@@ -1113,18 +1214,24 @@ SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
   return buff;
 }
 
-SPANS_LS_LIB void spans_ls_free(spans_linespan_t *restr l)
+SPANS_LS_LIB int spans_ls_free(spans_linespan_t *restr l)
 {
-  spans_str_free(&l->str);
+  SPANS_ASSERT(spans_ls_validate(l), "l is invalid in spans_ls_free(). (Probable double free)");
+  if (!spans_ls_validate(l))
+    return -1;
+
+  return spans_str_free(&l->str);
 }
 
-SPANS_LS_LIB void spans_ls_table_free(spans_ls_table_t *restr ltv)
+SPANS_LS_LIB int spans_ls_table_free(spans_ls_table_t *restr ltv)
 {
+
   for (size_t i = 0; i < ltv->len; i++)
   {
     linespan_t *l = &ltv->ptr[i];
     ls_free(l);
   }
+
   free(ltv->ptr);
 }
 
@@ -1133,9 +1240,14 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
                                            const size_t                     start,
                                            const size_t                     len)
 {
-  SPANS_ASSERT(l, "l is NULL in ss_init()");
-  SPANS_ASSERT(l->str.len > start, "Starting index is out of l->str's bounds in ss_init()");
-  SPANS_ASSERT(l->str.len >= start + len, "Tried fetching more than line contents in ss_init()");
+  if (!spans_ls_validate(l))
+    SPANS_PANIC("l is invalid in spans_ss_init");
+
+  if (l->str.len <= start)
+    SPANS_PANIC("Starting index is out of l->str's bounds in ss_init()");
+
+  if (l->str.len < start + len)
+    SPANS_PANIC("Tried fetching more than line contents in ss_init()");
 
   char *p = spans_ls_fetch_self(l, start, len);
   SPANS_ASSERT(p, "Failed to fetch string from linespan in ss_init()");
@@ -1205,7 +1317,7 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
                                     const spans_strspan_t  *restr s,
                                     const char                    swiggly_chr)
 {
-  const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
+  const spans_linespan_t *l = spans_ls_table_fetch(lt, s->l_idx);
   if (!l) return NULL;
 
   const size_t buf_sz = ((spans_numlen(l->num) + 5) * 2) + l->str.len + s->clmn + s->len + 1;
@@ -1231,13 +1343,13 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
 SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
                                       const spans_strspan_t  *restr s)
 {
-  const spans_linespan_t *l = spans_ls_table_fetch(lt, s->line_idx);
+  const spans_linespan_t *l = spans_ls_table_fetch(lt, s->l_idx);
   SPANS_ASSERT(l, "l_idx of s is invalid.");
 
   return (spans_span_t) {
     .len      = s->len,
     .clmn     = s->clmn,
-    .l_idx    = s->line_idx,
+    .l_idx    = s->l_idx,
     .line_num = l->num,
   };
 }
@@ -1247,13 +1359,32 @@ SPANS_SS_LIB void ss_free(spans_strspan_t *restr s)
   spans_str_free(&s->str);
 }
 
-/* TODO: Some spans_t library functions */
-
 SPANS_SPAN_LIB spans_strspan_t spans_span_to(const spans_ls_table_t *restr lt,
                                              const spans_span_t            sp)
 {
-  const spans_linespan_t ls = spans_ls_table_fetch(lt, sp.line_idx);
-  return;
+  if (!spans_ls_table_validate(lt))
+    SPANS_PANIC("lt is invalid in spans_span_to().");
+
+  const spans_linespan_t *ls = spans_ls_table_fetch(lt, sp.l_idx);
+
+  return (spans_strspan_t) {
+    .str   = ls->str,
+    .len   = sp.len,
+    .clmn  = sp.clmn,
+    .l_idx = sp.l_idx
+  };
+}
+
+SPANS_SPAN_LIB char *spans_span_display(const spans_ls_table_t *restr lt,
+                                        const spans_span_t            sp,
+                                        const char                    swiggly_chr)
+{
+  spans_strspan_t ss = spans_span_to(lt, sp);
+  char *out = spans_ss_display(lt, &ss, swiggly_chr);
+
+  spans_ss_free(&ss);
+
+  return out;
 }
 
 #endif /* SPANS_IMPL*/
