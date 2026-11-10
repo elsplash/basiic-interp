@@ -16,8 +16,6 @@ Licensed under the GNU General Public License V3.
 #ifndef SPANS_DEF
 #define SPANS_DEF
 
-#define SPANS_IMPL
-
 #include "macros.h"
 
 #include <stdlib.h>
