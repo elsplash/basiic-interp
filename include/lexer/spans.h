@@ -177,9 +177,9 @@ truthy integer. If not, it will return a set of negative
 or falsey integers.
 
 Those are the following:
--2 - s->len is more than s->cap.
--1 - s is NULL.
- 0 - s->__s is NULL.
+-2 - s->__s is NULL.
+-1 - s->len is more than s->cap.
+ 0 - s is NULL.
  1 - No issues. 
 */
 SPANS_STR_LIB int spans_str_validate(const spans_str_t *restr s);
@@ -410,6 +410,10 @@ This function is similar to the validate line spans, or the
 string validate function, but ported to the string span with
 extra checks.
 
+This has a special case if the line span table is invalid,
+or NULL, it will simply skip over the checks including the
+line span table.
+
 The error codes are as follows:
 */
 SPANS_SS_LIB int spans_ss_validate(const spans_ls_table_t *restr lt,
@@ -426,9 +430,9 @@ SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr ss, const char
 
 SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a , const spans_strspan_t *restr b);
 
-/* This function concatenates s1's string, with s2's string. */
-SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
-                                 const spans_strspan_t *restr s2);
+/* This function concatenates a's string, with b's string. */
+SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr a,
+                                 const spans_strspan_t *restr b);
 
 /* Repeats a character n times, for you lazy people. The pointer returned is heap allocated.*/
 SPANS_SS_STATIC char* spans_chr_repeat(const char c, const size_t n);
@@ -540,7 +544,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 
 SPANS_STR_LIB spans_str_t spans_str_creat(void)
 {
-  char *p = calloc(1, STR_T_INIT_SZ);
+  char *p = calloc(STR_T_INIT_SZ, 1);
   SPANS_ASSERT(p, "Failed to allocate p in str_creat()");
 
   return (spans_str_t) {
@@ -561,7 +565,7 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
 
   while (i < slen) i *= 2;
 
-  char * str = calloc(1, i);
+  char * str = calloc(i, 1);
   SPANS_ASSERT(str, "Failed to allocate str in str_creat()");
 
   strcpy(str, s);
@@ -576,13 +580,13 @@ SPANS_STR_LIB spans_str_t spans_str_init(const char *restr s)
 SPANS_STR_LIB int spans_str_validate(const spans_str_t *restr s)
 {
   if (!s)
-    return -1;
+    return 0;
 
   if (s->len > s->cap)
-    return -2;
+    return -1;
 
   if (!s->__s)
-    return 0;
+    return -2;
 
   return 1;
 }
@@ -599,6 +603,7 @@ SPANS_STR_LIB int spans_str_equal_chrp(const spans_str_t *restr s, const char *r
 
   if (strncmp(s->__s, c, s->len) == 0)
     return 1;
+
   return 0;
 }
 
@@ -959,7 +964,7 @@ SPANS_STR_LIB int spans_str_insert_str(      spans_str_t *restr a,
 
 SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s)
 {
-  char *buf = calloc(1, s->len + 1);
+  char *buf = calloc(s->len + 1, 1);
   if (!buf)
     SPANS_PANIC("Failed to allocate display for string in spans_str_display().");
 
@@ -1146,7 +1151,7 @@ SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
   if (l->str.len <= start + len)
     return NULL;
 
-  char *o = calloc(1, len + 1);
+  char *o = calloc(len + 1, 1);
 
   if (!o)
     SPANS_PANIC("Failed to allocate memory for line span section in spans_ls_fetch_self().");
@@ -1201,7 +1206,7 @@ SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
 
   const unsigned int buff_sz = spans_numlen(l->num) + l->str.len + 5;
 
-  char *buff = calloc(1, buff_sz);
+  char *buff = calloc(buff_sz, 1);
   if (!buff)
     SPANS_PANIC("Failed to allocate buffer in spans_ls_display().");
 
@@ -1263,10 +1268,38 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
   };
 }
 
+SPANS_SS_LIB int spans_ss_validate(const spans_ls_table_t *restr lt,
+                                   const spans_strspan_t  *restr ss)
+{
+  if (!ss)
+    return 0;
+
+  int rval = spans_str_validate(&ss->str);
+  if (!rval)
+    return rval - 1;
+
+  if (spans_ls_table_validate(lt))
+  {
+    const spans_linespan_t *ls = spans_ls_table_fetch(lt, ss->l_idx);
+    if (!spans_ls_validate(ls))
+      return -4;
+
+    if (ls->str.len < ss->clmn + ss->len)
+      return -5;
+  }
+
+  if (ss->str.len != ss->len)
+    return 2;
+
+  return 1;
+}
+
 SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr s,
                                      const char            *restr c)
 {
-  if (!s) return -1;
+  SPANS_ASSERT(spans_ss_validate(NULL, s), "s is invalid in spans_ss_equal_chrp().");
+  if (!spans_ss_validate(NULL, s))
+    return -1;
 
   const int rval = spans_str_equal_chrp(&s->str, c);
   if (rval < 0)
@@ -1278,8 +1311,13 @@ SPANS_SS_LIB int spans_ss_equal_chrp(const spans_strspan_t *restr s,
 SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a,
                                    const spans_strspan_t *restr b)
 {
-  if (!a) return -1;
-  if (!b) return -2;
+  SPANS_ASSERT(spans_ss_validate(NULL, a), "a is invalid in spans_ss_equal_ss().");
+  if (!a)
+    return -1;
+
+  SPANS_ASSERT(spans_ss_validate(NULL, b), "b is invalid in spans_ss_equal_ss().");
+  if (!b)
+    return -2;
 
   const int rval = spans_str_equal_str(&a->str, &b->str);
   if (rval < 0)
@@ -1288,27 +1326,30 @@ SPANS_SS_LIB int spans_ss_equal_ss(const spans_strspan_t *restr a,
   return rval;
 }
 
-SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr s1,
-                                 const spans_strspan_t *restr s2)
+SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr a,
+                                 const spans_strspan_t *restr b)
 {
-  SPANS_ASSERT(s1, "s1 is NULL in spans_ss_concat().");
-  SPANS_ASSERT(s2, "s2 is NULL in spans_ss_concat().");
-  if (!s1 || !s2)
+  SPANS_ASSERT(a, "s1 is NULL in spans_ss_concat().");
+  SPANS_ASSERT(b, "s2 is NULL in spans_ss_concat().");
+  if (!a || !b)
     return -1;
 
-  SPANS_ASSERT(s1->l_idx == s2->l_idx, "s1's line index is not equal to s2's in spans_ss_concat().");
-  if (s1->l_idx != s2->l_idx)
+  SPANS_ASSERT(a->l_idx == b->l_idx, "s1's line index is not equal to s2's in spans_ss_concat().");
+  if (a->l_idx != b->l_idx)
     return -2;
 
-  spans_str_pushr_chrp(&s1->str, s2->str.__s);
+  spans_str_pushr_chrp(&a->str, b->str.__s);
   return 0;
 }
 
 SPANS_SS_STATIC char* spans_chr_repeat(const char c, const size_t n)
 {
-  char *o = calloc(1, n + 1);
-  if (!o) return NULL;
+  char *o = malloc(n + 1);
+  if (!o)
+    SPANS_PANIC("Failed to allocate repeated characters in spans_chr_repeat().");
+
   memset(o, (int) c, n);
+  o[n] = '\0';
 
   return o;
 }
@@ -1317,17 +1358,32 @@ SPANS_SS_LIB char* spans_ss_display(const spans_ls_table_t *restr lt,
                                     const spans_strspan_t  *restr s,
                                     const char                    swiggly_chr)
 {
+  SPANS_ASSERT(spans_ls_table_validate(lt), "lt is invalid in spans_ss_display().");
+  if (!spans_ls_table_validate(lt))
+    return NULL;
+
+  SPANS_ASSERT(spans_ss_validate(lt, s), "s is invalid in spans_ss_display()");
+  if (!spans_ss_validate(lt, s))
+    return NULL;
+
   const spans_linespan_t *l = spans_ls_table_fetch(lt, s->l_idx);
-  if (!l) return NULL;
+
+  SPANS_ASSERT(spans_ls_validate(l), "fetched l is invaliid in spans_ss_display().");
+  if (!spans_ls_validate(l))
+    return NULL;
 
   const size_t buf_sz = ((spans_numlen(l->num) + 5) * 2) + l->str.len + s->clmn + s->len + 1;
-  char * buf          = calloc(1, buf_sz);
-  if (!buf) return NULL;
+
+  char * buf = calloc(buf_sz, 1);
+  if (!buf)
+    SPANS_PANIC("Failed to allocate buffer in spans_ss_display().");
 
   char * spaces1  = spans_chr_repeat(' ', spans_numlen(l->num));
   char * spaces2  = spans_chr_repeat(' ', s->clmn);
   char * swiggly = spans_chr_repeat(swiggly_chr, s->len);
-  if (!spaces1 &&  !spaces2 && !swiggly) return NULL;
+  if (!spaces1 &&
+      !spaces2 &&
+      !swiggly) return NULL;
 
   char *ls_display = spans_ls_display(l);
   snprintf(buf, buf_sz, "%s\n%s | %s%s",
@@ -1394,5 +1450,5 @@ SPANS_SPAN_LIB char *spans_span_display(const spans_ls_table_t *restr lt,
 }
 #endif
 */
-
+ 
 #endif /* SPAN_DEF */
