@@ -537,7 +537,7 @@ SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
 #include <string.h>
 
 #ifndef STR_T_INIT_SZ
-#define STR_T_INIT_SZ 64
+#define STR_T_INIT_SZ 16
 #endif
 
 SPANS_STR_LIB spans_str_t spans_str_creat(void)
@@ -1121,7 +1121,7 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath)
   {
     ls_push.str = spans_str_creat();
 
-    while ((cur - fgetc(f)) != EOF || cur != '\n')
+    while ((cur = fgetc(f)) != EOF && cur != '\n')
     {
       if (spans_str_pushr_chr(&ls_push.str, (char) cur) < 0)
         SPANS_PANIC("Failed to push character in spans_ls_fetch_file().");
@@ -1244,16 +1244,16 @@ SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
                                            const size_t                     len)
 {
   if (!spans_ls_validate(l))
-    SPANS_PANIC("l is invalid in spans_ss_init");
+    SPANS_PANIC("l is invalid in spans_ss_init()");
 
   if (l->str.len <= start)
-    SPANS_PANIC("Starting index is out of l->str's bounds in ss_init()");
+    SPANS_PANIC("Starting index is out of l->str's bounds in spans_ss_init().");
 
   if (l->str.len < start + len)
-    SPANS_PANIC("Tried fetching more than line contents in ss_init()");
+    SPANS_PANIC("Tried fetching more than line contents in spans_ss_init().");
 
   char *p = spans_ls_fetch_self(l, start, len);
-  SPANS_ASSERT(p, "Failed to fetch string from linespan in ss_init()");
+  SPANS_ASSERT(p, "Failed to fetch string from linespan in spans_ss_init().");
 
   spans_str_t s = str_init(p);
   free(p);

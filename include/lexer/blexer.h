@@ -1100,16 +1100,16 @@ BLEXER_LIB blexer_lextoken_t blexer_tokenize_string(const spans_linespan_t *rest
                                                     const size_t                  start,
                                                           size_t           *restr len) /* This is to keep track of where the string ended. */
 {
-  if (spans_ls_validate(l))
+  if (!spans_ls_validate(l))
     BLEXER_PANIC("Passed l parameter is invalid in blexer_tokenize_string().");
 
   if (!len)
-    BLEXER_PANIC("Passed len parameter is NULL is invalid in blexer_tokenize_string().");
+    BLEXER_PANIC("Passed len parameter is NULL in blexer_tokenize_string().");
 
   if (*len == 0)
     BLEXER_PANIC("Passed len parameter is invalid in blexer_tokenize_string().");
 
-  for (; *len < l->str.len - 1; (*len)++)
+  for (; *len + start < l->str.len - 1; (*len)++)
   {
     const size_t cur_idx = *len + start;
     if (l->str.__s[cur_idx] == '"')
@@ -1155,10 +1155,10 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
   blexer_lextok_vec_t   out   = blexer_ltvec_creat();
   blexer_lexer_state_t  stat  = LEXST_ETC;
   long                 start = -1;
-  size_t               len   = 0;
+  long                 len   = 0;
 
   size_t i = 0;
-  while (i < l->str.len)
+  for (; i < l->str.len; i++)
   {
     const char c = l->str.__s[i];
 
@@ -1170,7 +1170,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       switch (stat)
       {
       case LEXST_ALNUM:
-        /* Fallthrough */
+      /* Fallthrough */
       case LEXST_ID:
         break;
 
@@ -1178,7 +1178,8 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
         len   = 1;
         start = i;
-        /* Fallthrough*/
+        break;
+
       case LEXST_ETC:
         stat  = LEXST_ID;
         break;
@@ -1186,7 +1187,6 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       default:
         BLEXER_PANIC("Invalid state in blexer_tokenize_line() (1)");
       }
-      i++;
       continue;
     }
     else if (isdigit(c))
@@ -1195,17 +1195,18 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       {
       case LEXST_ID:
         stat = LEXST_ALNUM;
-        /* Fallthrough */
+      /* Fallthrough */
       case LEXST_ALNUM:
-        /* Fallthrough */
+      /* Fallthrough */
       case LEXST_NUM:
         break;
 
       case LEXST_SPACE:
         blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
-        len   = 1;
+        len = 1;
         start = i;
-        /* Fallthrough */
+        break;
+
       case LEXST_ETC:
         stat = LEXST_NUM;
         break;
@@ -1213,39 +1214,23 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       default:
         BLEXER_PANIC("Invalid state in blexer_tokenize_line() (2)");
       }
-      i++;
-      continue;
-    } else if (c == ' ' && stat == LEXST_SPACE) {
-      i++;
       continue;
     }
+    else if (c == ' ' && stat == LEXST_SPACE)
+      continue;
 
-    if (len > 1)
+    if (len > 1 && stat != LEXST_ETC)
     {
-      if (stat == LEXST_ID || LEXST_ALNUM)
-      {
-        switch (l->str.__s[i + 1])
+      if ((stat == LEXST_ID || stat == LEXST_ALNUM) &&
+          l->str.__s[i] == ':')
         {
-        case '!':
-          /* Fallthrough */
-        case '&':
-          /* Fallthrough */
-        case '%':
-          /* Fallthrough */
-        case '#':
-          /* Fallthrough */
-        case '$':
           i++;
           len++;
-          break;
-
-        default:
-          break;
         }
-      }
       blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
-      len   = 1;
+      len = 1;
       start = i;
+      stat = LEXST_ETC;
     }
     else if (c == '\n')
     {
@@ -1265,69 +1250,68 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
     {
     case ' ':
       stat = LEXST_SPACE;
-      i++;
       continue;
 
     case '=':
       token_type = TT_EQUAL;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_EQEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_EQEQ;
+        }
       break;
 
     case '+':
       token_type = TT_PLUS;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_ADDEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_ADDEQ;
+        }
       else if (l->str.__s[i + 1] == '+')
-      {
-        len++;
-        i++;
-        token_type = TT_INCR;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_INCR;
+        }
       break;
 
     case '-':
       token_type = TT_MINUS;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_SUBEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_SUBEQ;
+        }
       else if (l->str.__s[i + 1] == '-')
-      {
-        len++;
-        i++; 
-        token_type = TT_DECR;
-      }
+        {
+          len++;
+          i++; 
+          token_type = TT_DECR;
+        }
       break;
 
     case '*':
       token_type = TT_STAR;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_MULEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_MULEQ;
+        }
       break;
 
     case '/':
       token_type = TT_SLASH;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_DIVEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_DIVEQ;
+        }
       break;
 
     case '^':
@@ -1380,13 +1364,13 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 
     case '"':
       {
-        size_t string_len = 0;
+        size_t string_len = 1;
         blexer_lextoken_t ltok = blexer_tokenize_string(l, l_idx, i, &string_len);
         blexer_ltvec_push(&out, ltok);
         i += string_len;
       }
       start = -1;
-      len   = 0;
+      len   =  1;
       continue;
 
     case ';':
@@ -1408,27 +1392,27 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
     case '<':
       token_type = TT_L_ANG_BRACK;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_LESSEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_LESSEQ;
+        }
       else if (l->str.__s[i + 1] == '>')
-      {
-        len++;
-        i++;
-        token_type = TT_NOT;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_NOT;
+        }
       break;
 
     case '>':
       token_type = TT_R_ANG_BRACK;
       if (l->str.__s[i + 1] == '=')
-      {
-        len++;
-        i++;
-        token_type = TT_GREATEQ;
-      }
+        {
+          len++;
+          i++;
+          token_type = TT_GREATEQ;
+        }
       break;
 
     case '\\':
@@ -1456,10 +1440,10 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 
     start = -1;
     len   =  0;
-    i++;
   }
 
-  if (len > 0) blexer_fetch_n_push(l, &out, stat, l_idx, start, len);
+  if (--len > 0)
+    blexer_fetch_n_push(l, &out, stat, l_idx, start, len);
 
   return out;
 }
