@@ -989,6 +989,7 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
   case TT_KW_PRINT:
     break;
+
   case TT_KW_PUT:
     break;
 
@@ -1746,7 +1747,7 @@ CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
     cst_cstnode_t *alloc_node = cst_convert_cn_to_alloc(cmnt);
     if (!alloc_node) {
       cst_cstnode_free(&cmnt);
-      CST_PANIC("Failed to allocate comment content node in cst_parse_line().");
+      CST_PANIC("Failed to allocate comment content node in cst_parse_cst_comment().");
     }
 
     cst_cstnode_push_child(&cn, alloc_node);
