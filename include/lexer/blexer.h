@@ -12,9 +12,7 @@ Licensed under the GNU General Public License V3.
 
 #ifndef BLEXER_DEF
 #define BLEXER_DEF
-
-#define BLEXER_IMPL
-
+ 
 #include "macros.h"
 
 /* NOTE ABOUT PREFIXES:
@@ -644,21 +642,25 @@ BLEXER_STATIC inline int blexer_ltvec_validate(const blexer_lextok_vec_t *restr 
 
 BLEXER_STATIC blexer_lextok_vec_t blexer_ltvec_creat(void)
 {
-  blexer_lextoken_t *ptr = calloc(sizeof(*ptr), BLEXER_LTVEC_INITSZ);
-  BLEXER_ASSERT(ptr, "Failed to allocate in blexer_ltvec_creat()");
+  blexer_lextoken_t *ptr = malloc(BLEXER_LTVEC_INITSZ * sizeof(*ptr));
+  if (!ptr)
+    BLEXER_PANIC("Failed to allocate lexer token vector in ltvec_creat().");
 
   return (blexer_lextok_vec_t) {
     .ptr = ptr,
-    .len      = 0,
-    .cap      = BLEXER_LTVEC_INITSZ
+    .len = 0,
+    .cap = BLEXER_LTVEC_INITSZ
   };
 }
 
 BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *restr ltvec,
                                                    const size_t                     idx)
 {
-  BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is not valid in blexer_ltvec_fetch()");
-  BLEXER_ASSERT(idx >= ltvec->len, "idx is out of bound sin blexer_ltvec_fetch");
+  if (!blexer_ltvec_validate(ltvec))
+    BLEXER_PANIC("ltvec is not valid in blexer_ltvec_fetch()");
+
+  if (idx < ltvec->len)
+    BLEXER_PANIC("idx is out of bound sin blexer_ltvec_fetch");
 
   return ltvec->ptr[idx];
 }
@@ -682,22 +684,22 @@ BLEXER_STATIC int blexer_ltvec_push(blexer_lextok_vec_t *restr ltvec, const blex
 
 BLEXER_STATIC int blexer_ss_to_lower(spans_strspan_t *restr ss)
 {
-  if (!ss) return -1;
+  if (!spans_ss_validate(NULL, ss)) return -1;
+
   for (size_t i = 0; i < ss->str.len; i++)
-  {
     ss->str.__s[i] = tolower(ss->str.__s[i]);
-  }
+
   return 0;
 }
 
-BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t    *restr l,
-                                           blexer_lextok_vec_t  *restr out,
-                                     const blexer_lexer_state_t        stat,
-                                     const size_t                     l_idx,
-                                     const size_t                     start,
-                                     const size_t                     len)
+BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t     *restr l,
+                                             blexer_lextok_vec_t  *restr out,
+                                       const blexer_lexer_state_t        stat,
+                                       const size_t                      l_idx,
+                                       const size_t                      start,
+                                       const size_t                      len)
 {
-  BLEXER_ASSERT(stat != LEXST_ETC, "State is an impossible state (LEXST_ETC in blexer_tokenize_line())");
+  BLEXER_ASSERT(stat != LEXST_ETC, "State is an impossible state (LEXST_ETC in blexer_tokenize_line().");
   strspan_t ss = spans_ss_init(l, l_idx, start, len);
   blexer_ss_to_lower(&ss);
   blexer_tokentype_t token_type;
@@ -1094,29 +1096,28 @@ BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
 }
 
 BLEXER_LIB blexer_lextoken_t blexer_tokenize_string(const spans_linespan_t *restr l,
-                                                 const size_t                  l_idx,
-                                                 const size_t                  start,
-                                                       size_t           *restr len) /* This is to keep track of where the string ended. */
+                                                    const size_t                  l_idx,
+                                                    const size_t                  start,
+                                                          size_t           *restr len) /* This is to keep track of where the string ended. */
 {
-  BLEXER_ASSERT(l, "Passed l parameter is NULL");
-  BLEXER_ASSERT(len, "Passed len parameter is NULL");
-  BLEXER_ASSERT(*len == 0, "Passed len parameter is invalid");
+  if (spans_ls_validate(l))
+    BLEXER_PANIC("Passed l parameter is invalid in blexer_tokenize_string().");
 
-  /*
-  Manual iteration is required.
-  We assume the linespan starts at a quotation mark,
-  like `"Hello World!"`, so we can skip it gladly.
+  if (!len)
+    BLEXER_PANIC("Passed len parameter is NULL is invalid in blexer_tokenize_string().");
 
-  If no quotation mark is found we need to end at the
-  end of the line, hence lenght needs to be subtracted
-  by one.
-  */
-  while ((*len)++ < l->str.len - 1)
+  if (*len == 0)
+    BLEXER_PANIC("Passed len parameter is invalid in blexer_tokenize_string().");
+
+  for (; *len < l->str.len - 1; (*len)++)
   {
-    if (l->str.__s[*len + start] == '"')
+    const size_t cur_idx = *len + start;
+    if (l->str.__s[cur_idx] == '"')
     {
-      if (*len != l->str.len - 1 && l->str.__s[++(*len) + start] == '"')
+      if (*len != l->str.len - 1 &&       /* Is not EOL */
+          l->str.__s[cur_idx + 1] == '"') /* Is the next character "? */
       {
+        (*len)++;
         continue;
       }
       break;
@@ -1129,29 +1130,27 @@ BLEXER_LIB blexer_lextoken_t blexer_tokenize_string(const spans_linespan_t *rest
   };
 
   /*- Format out.span for future parsing -*/
-
   /* Trim out the double quotation marks */
-
   if (out.span.str.__s[out.span.str.len - 1] == '"')
     spans_str_popr(&out.span.str, 1); /* Since it's possible that the right quote can be missing. */
+
   spans_str_popl(&out.span.str, 1);
 
   /* Format the quotation mark escape sequences */
-  size_t i = 0;
-  while (i < out.span.str.len)
+  for (size_t i = 0; i < out.span.str.len; i++)
   {
-    if (out.span.str.__s[i] == '"')
+    if (out.span.str.__s[i] == '"' )
       spans_str_pop_at(&out.span.str, i, 1);
-    i++;
   }
 
   return out;
 }
 
 BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *restr l,
-                                                 const size_t                  l_idx)
+                                                    const size_t                  l_idx)
 {
-  BLEXER_ASSERT(l, "Passed l parameter is NULL");
+  if (!spans_ls_validate(l))
+    BLEXER_PANIC("Passed l parameter is invalid");
 
   blexer_lextok_vec_t   out   = blexer_ltvec_creat();
   blexer_lexer_state_t  stat  = LEXST_ETC;
@@ -1467,7 +1466,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
 BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
                                   const blexer_lextok_vec_t *restr ltvec)
 {
-  BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is invalid in blexer_detect_errs");
+  BLEXER_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is invalid in blexer_detect_errs().");
   if (blexer_ltvec_validate(ltvec))
     return -1;
 
@@ -1484,7 +1483,7 @@ BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
       char *display = spans_ss_display(lt, &ltok.span, '^');
       if (!display) return -2;
 
-      const spans_linespan_t *ls = spans_ls_table_fetch(lt, ltok.span.line_idx);
+      const spans_linespan_t *ls = spans_ls_table_fetch(lt, ltok.span.l_idx);
       if (!ls) return -3;
 
       printf("[ERROR] Syntax error! Unexpected symbol:\n"
