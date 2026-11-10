@@ -206,6 +206,8 @@ adding any docstrings to these unless necessary.
 
 CST_STATIC int cst_cnt_is_variable(const cst_cstnode_type_t cnt);
 
+CST_STATIC cst_cstnode_type_t cst_tt_op_to_cnt(const blexer_tokentype_t tt);
+
 /*
 Creates a CST Node vector for you, so that you can call this
 function instead of doing it manually.
@@ -514,6 +516,91 @@ CST_STATIC cst_cnvec_t cst_cnvec_creat(void)
   };
 }
 
+CST_STATIC cst_cstnode_type_t cst_tt_op_to_cnt(const blexer_tokentype_t tt)
+{
+  if (!blexer_tt_is_op(tt))
+    CST_PANIC("Token Type given is not an operator in cst_tt_op_to_cnt().");
+
+  cst_cstnode_type_t cnt;
+
+  switch (tt)
+  {
+
+  case TT_EQUAL:
+    cnt = CNT_CH_EQUAL;
+    break;
+
+  case TT_EQEQ:
+    cnt = CNT_CH_EQEQ;
+    break;
+
+  case TT_PLUS:
+    cnt = CNT_CH_PLUS;
+    break;
+
+  case TT_INCR:
+    cnt = CNT_CH_INCR;
+    break;
+
+  case TT_ADDEQ:
+    cnt = CNT_CH_ADDEQ;
+    break;
+
+  case TT_MINUS:
+    cnt = CNT_CH_MINUS;
+    break;
+
+  case TT_DECR:
+    cnt = CNT_CH_DECR;
+    break;
+
+  case TT_SUBEQ:
+    cnt = CNT_CH_SUBEQ;
+    break;
+
+  case TT_STAR:
+    cnt = CNT_CH_TIMES;
+    break;
+
+  case TT_MULEQ:
+    cnt = CNT_CH_MULEQ;
+    break;
+
+  case TT_SLASH:
+    cnt = CNT_CH_DIVIDE;
+    break;
+
+  case TT_DIVEQ:
+    cnt = CNT_CH_DIVEQ;
+    break;
+
+  case TT_L_ANG_BRACK:
+    cnt = CNT_CH_LESSER;
+    break;
+
+  case TT_LESSEQ:
+    cnt = CNT_CH_LESSEQ;
+    break;
+
+  case TT_R_ANG_BRACK:
+    cnt = CNT_CH_GREATER;
+    break;
+
+  case TT_GREATEQ:
+    cnt = CNT_CH_GREATEQ;
+    break;
+
+  case TT_NOT:
+    cnt = CNT_CH_NOT;
+    break;
+
+  default:
+    CST_PANIC("Caught a non-operator in cst_tt_op_to_cnt().");
+  }
+
+  return cnt;
+}
+
 CST_STATIC int cst_cnvec_validate(const cst_cnvec_t *restr cnvec)
 {
   if (!cnvec)
@@ -639,31 +726,35 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
   case TT_NS_ID:
   {
+    const blexer_lextoken_t ltok = ltvec->ptr[cur_idx];
+
     cst_cstnode_type_t ctype;
-    switch (ltvec->ptr[cur_idx].type)
+
+    switch (ltok.span.str.__s[ltok.span.str.len - 1])
     {
-    case TT_PERCENT:
+    case '%':
       ctype = CNT_CH_V_SHORT;
       break;
 
-    case TT_AMPERSAND:
+    case '&':
       ctype = CNT_CH_V_LONG;
       break;
 
-    case TT_EXCL:
+    case '!':
       ctype = CNT_CH_V_SINGLE;
       break;
 
-    case TT_POUND:
+    case '#':
       ctype = CNT_CH_V_DOUBLE;
       break;
 
-    case TT_DOLLAR:
+    case '$':
       ctype = CNT_CH_V_STRING;
       break;
 
     default:
-      goto Error;
+      ctype = CNT_CH_V_IMPLICIT;
+      break;
     }
 
     if (!cst_consume_cst_if_space(ltvec, &out.span, &cur_idx))
@@ -671,6 +762,7 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
     if (cst_expect_ltok(ltvec, cur_idx, TT_EQUAL))
       goto Error;
+
     spans_ss_concat(&out.span, &ltvec->ptr[cur_idx].span);
     cur_idx++;
 
@@ -689,7 +781,8 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
       const int rval = cst_consume_cst_comment(ltvec, &out, &cur_idx);
       if (rval != 0) goto Error;
     }
-    else {/* There should be a function that checks if there's stil more lextokens, and errors if so. */}
+    else
+      cst_consume_remaining_cst(ltvec, &out, cur_idx);
   }
 
     break;
@@ -1322,6 +1415,8 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
     (*ltstart)++;
     ltok = blexer_ltvec_fetch(ltvec, *ltstart);
+    if (has_parsed_unary)
+      return 1;
     has_parsed_unary = 1;
   }
 
@@ -1333,8 +1428,13 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
       CST_PANIC("Failed to allocate Main Unary node in cst_parse_un_op_cst().");
 
   cst_cstnode_push_next(main_node, alloc_node);
+  spans_ss_concat(&main_node->span, &cn.span);
 
-  if (!has_parsed_unary) goto ParseUnary;
+  if (!has_parsed_unary)
+  {
+    has_parsed_unary = 1;
+    goto ParseUnary;
+  }
 
   return 1;
 }
@@ -1382,14 +1482,26 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
                                 detected_bin_op_lvl,
                                 lhs,
                                 ltstart);
-  if (bin_op_lvl < detected_bin_op_lvl) return 1;
-  if (bin_op_lvl > detected_bin_op_lvl) return 2;
 
-  // Detect the operator and turn into CNT
-  const cst_cstnode_t op_cn = (cst_cstnode_t) {
+  if (bin_op_lvl < detected_bin_op_lvl) return 1;
+
+  const cst_cstnode_type_t cnt = cst_tt_op_to_cnt(op.type);
+  cst_cstnode_t op_cn = (cst_cstnode_t) {
+    .type = cnt,
+    .span = op.span,
   };
 
-  cst_convert_cn_to_alloc(op_cn);
+  if (bin_op_lvl > detected_bin_op_lvl)
+  {
+    const int rval = cst_parse_bin_op_cst(ltvec, detected_bin_op_lvl, &op_cn, ltstart);
+    if (rval < 0)
+      return rval;
+  }
+
+  cst_cstnode_t *alloc_node = cst_convert_cn_to_alloc(op_cn);
+  if (!alloc_node)
+    CST_PANIC("Failed to allocate node in cst_parse_bin_op_cst().");
+  cst_cstnode_push_next(lhs, alloc_node);
 
   (*ltstart)++;
   cst_consume_cst_if_space(ltvec, &lhs->span, ltstart);
@@ -1403,7 +1515,7 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
   if (blexer_tt_is_bin_op(blexer_ltvec_fetch(ltvec, local_cur_idx).type))
   {
-    (*ltstart)++;
+    *ltstart = local_cur_idx;
     return cst_parse_bin_op_cst(ltvec,
                                 bin_op_lvl,
                                 lhs,
@@ -1517,13 +1629,7 @@ CST_LIB cst_cstnode_t cst_parse_primary_cst(const blexer_lextok_vec_t *restr ltv
   }
 
   default:
-    if (!blexer_tt_is_un_op(ltok.type)) break;
-    {
-      cst_cstnode_t expr = (cst_cstnode_t) {
-        .type = CNT_PR_UN_OP
-      };
-      cst_parse_un_op_cst(ltvec, &expr, ltstart);
-    }
+    break;
   }
 
   return (cst_cstnode_t) {
@@ -1613,7 +1719,7 @@ CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
     else if (ltok.type == TT_KW_REM)
       cn.type = CNT_PR_REM_COMMENT;
     else
-      CST_PANIC("cst_consume_cst_comment() was called on a non-comment lexer token.");
+      CST_PANIC("cst_consume_cst_comment() was called on a non-comment lexer token in cst_consume_cst_comment().");
 
     cst_cstnode_t cmnt_key = (cst_cstnode_t) {
       .type = CNT_CH_CMNT_KEY,
@@ -1624,7 +1730,7 @@ CST_LIB int cst_consume_cst_comment(const blexer_lextok_vec_t *restr ltvec,
     if (!alloc_node)
     {
       cst_cstnode_free(&cmnt_key);
-      CST_PANIC("Failed to allocate comment key in cst_parse_cst_line().");
+      CST_PANIC("Failed to allocate comment key in cst_parse_cst_comment().");
     }
 
     cst_cstnode_push_child(&cn, alloc_node);

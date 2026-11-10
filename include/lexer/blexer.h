@@ -12,7 +12,7 @@ Licensed under the GNU General Public License V3.
 
 #ifndef BLEXER_DEF
 #define BLEXER_DEF
- 
+
 #include "macros.h"
 
 /* NOTE ABOUT PREFIXES:
@@ -1188,7 +1188,8 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       }
       i++;
       continue;
-    } else if (isdigit(c))
+    }
+    else if (isdigit(c))
     {
       switch (stat)
       {
