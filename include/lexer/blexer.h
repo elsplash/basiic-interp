@@ -1094,6 +1094,8 @@ BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
       return i;
   }
 
+  ltvec->ptr = NULL;
+
   return 0;
 }
 
