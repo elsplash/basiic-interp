@@ -695,7 +695,7 @@ CST_LIB cst_cnvec_t cst_parse_cst_file(const spans_ls_table_t *restr lt)
 
 CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 {
-  if (blexer_ltvec_validate(ltvec))
+  if (!blexer_ltvec_validate(ltvec))
     CST_PANIC("ltvec is not valid in cst_parse_cst_line().");
 
   cst_cstnode_t out = {0};
@@ -726,7 +726,7 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
 
   case TT_NS_ID:
   {
-    const blexer_lextoken_t ltok = ltvec->ptr[cur_idx];
+    blexer_lextoken_t ltok = ltvec->ptr[cur_idx];
 
     cst_cstnode_type_t ctype;
 
@@ -757,22 +757,34 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
       break;
     }
 
-    if (!cst_consume_cst_if_space(ltvec, &out.span, &cur_idx))
-      goto Error;
-
-    if (cst_expect_ltok(ltvec, cur_idx, TT_EQUAL))
-      goto Error;
-
-    spans_ss_concat(&out.span, &ltvec->ptr[cur_idx].span);
+    cst_cstnode_t lhs = (cst_cstnode_t) {
+      .type = ctype,
+      .span = ltok.span,
+    };
     cur_idx++;
+    const int rval = cst_parse_bin_op_cst(ltvec, -1, &lhs, &cur_idx);
 
-    if (!cst_consume_cst_if_space(ltvec, &out.span, &cur_idx))
+    if (!rval)
       goto Error;
 
-    {
-      const int rval = cst_parse_expr_cst(ltvec, &out, &cur_idx);
-      if (rval != 0) goto Error;
-    }
+    cst_cstnode_t *alloc_node = cst_convert_cn_to_alloc(lhs);
+    if (!alloc_node)
+      CST_PANIC("Failed to allocate node for lhs in cst_parse_cst_line().");
+    cst_cstnode_push_next(&out, alloc_node);
+    /*
+      bm:current
+      This is where we currently are, as you can see I have
+      refactored this piece of code right here, I think the
+      problem will arise is that the binary operator parser
+      does not think the lhs is supposed to be a binary
+      operator node, not an actual left hand side node.
+
+      Else I think it should be apparent that I'm not
+      handling the return value of this yet, so go do that
+      I think.
+
+      I am quite hungry.
+    */
 
     cst_consume_cst_if_space(ltvec, &out.span, &cur_idx);
 
@@ -1228,31 +1240,26 @@ CST_LIB int cst_error_cst(const blexer_lextok_vec_t *restr ltvec,
 CST_LIB cst_cstnode_t cst_parse_cst_label(const blexer_lextok_vec_t *restr ltvec,
                                                 size_t              *restr cur_idx)
 {
-  if (ltvec->ptr[0].type == TT_NS_NUM)
-  {
-    (*cur_idx)++;
-    return (cst_cstnode_t) {
-      .type = CNT_CH_NUM_LABEL,
-      .span = ltvec->ptr[0].span,
-    };
-  }
-  else if ((ltvec->ptr[0].type == TT_NS_ID ||
-            ltvec->ptr[0].type == TT_NS_ALNUM) &&
-           ltvec->ptr[1].type == TT_COLON)
-  {
-    (*cur_idx) += 2;
-    spans_strspan_t ss = ltvec->ptr[0].span;
-    spans_ss_concat(&ss, &ltvec->ptr[1].span);
-    return (cst_cstnode_t) {
-      .type = CNT_CH_ALNUM_LABEL,
-      .span = ss,
-    };
+  const blexer_lextoken_t ltok = blexer_ltvec_fetch(ltvec, 0);
+  (*cur_idx)++;
+
+  cst_cstnode_t out = (cst_cstnode_t) {
+    .span = ltok.span,
+  };
+
+  if (ltok.type == TT_NS_NUM)
+    out.type = CNT_CH_NUM_LABEL;
+  else if ((ltok.type == TT_NS_ID ||
+            ltok.type == TT_NS_ALNUM) &&
+           ltok.span.str .__s[ltok.span.str.len - 1]
+             == TT_COLON)
+    out.type = CNT_CH_ALNUM_LABEL;
+  else {
+    (*cur_idx)--;
+    out.type = CNT_PR_ERR;
   }
 
-  return (cst_cstnode_t) {
-    .type = CNT_PR_ERR,
-    .span = ltvec->ptr[0].span,
-  };
+  return out;
 }
 
 CST_LIB int cst_parse_paren_cst(const blexer_lextok_vec_t *restr ltvec,
