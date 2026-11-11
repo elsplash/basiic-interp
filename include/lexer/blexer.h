@@ -13,6 +13,9 @@ Licensed under the GNU General Public License V3.
 #ifndef BLEXER_DEF
 #define BLEXER_DEF
 
+/* Developing Leftover, DELETE AT COMMIT!!!! */
+#define BLEXER_IMPL
+
 #include "macros.h"
 
 /* NOTE ABOUT PREFIXES:
@@ -1230,7 +1233,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       start = i;
 
       const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
-      blexer_ltvec_push(&out, (blexer_lextoken_t) { /* bm:current */
+      blexer_ltvec_push(&out, (blexer_lextoken_t) {
         .span = ss,
         .type = TT_NEWLINE,
       });
@@ -1238,12 +1241,26 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
     }
     else if (len > 1 && stat != LEXST_ETC)
     {
-      if ((stat == LEXST_ID || stat == LEXST_ALNUM) &&
-          l->str.__s[i] == ':')
-        {
+      if (stat == LEXST_ID || stat == LEXST_ALNUM)
+      {
+        switch (c) {
+        case '%':
+          /* Fallthrough */
+        case '&':
+          /* Fallthrough */
+        case '!':
+          /* Fallthrough */
+        case '#':
+          /* Fallthrough */
+        case '$':
+        case ':':
           i++;
           len++;
+          /* Fallthrough */
+        default:
+          break;
         }
+      }
       blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
       len = 1;
       start = i;
