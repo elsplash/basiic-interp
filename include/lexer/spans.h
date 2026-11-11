@@ -445,7 +445,7 @@ SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
                                       const spans_strspan_t *restr s);
 
 /* Frees the string strspan_t */
-SPANS_SS_LIB void spans_ss_free(spans_strspan_t *restr s);
+SPANS_SS_LIB int spans_ss_free(spans_strspan_t *restr s);
 
 #define str_t      spans_str_t
 #define linespan_t spans_linespan_t
@@ -1230,16 +1230,22 @@ SPANS_LS_LIB int spans_ls_free(spans_linespan_t *restr l)
 
 SPANS_LS_LIB int spans_ls_table_free(spans_ls_table_t *restr ltv)
 {
-  SPANS_ASSERT(spans_ltvec_validate(ltv), "ltv is invalid in spans_ls_table_free().");
+  SPANS_ASSERT(spans_ls_table_validate(ltv), "ltv is invalid in spans_ls_table_free().");
+  if (!spans_ls_table_validate(ltv))
+    return 0;
 
   for (size_t i = 0; i < ltv->len; i++)
   {
-    linespan_t *l = &spans_ls_table_fetch(ltv, i);
-    spans_ls_free(l);
+    linespan_t *l = spans_ls_table_fetch(ltv, i);
+    int rval = spans_ls_free(l);
+    if (!rval)
+      return -1;
   }
 
   free(ltv->ptr);
   ltv->ptr = NULL;
+
+  return 1;
 }
 
 SPANS_SS_LIB spans_strspan_t spans_ss_init(const spans_linespan_t    *restr l,
@@ -1414,8 +1420,8 @@ SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
 
 SPANS_SS_LIB int spans_ss_free(spans_strspan_t *restr s)
 {
-  SPANS_ASSERT(spans_ss_validate(s), "s is invalid in spans_ss_free().");
-  if (!spans_ss_validate(s))
+  SPANS_ASSERT(spans_ss_validate(NULL, s), "s is invalid in spans_ss_free().");
+  if (!spans_ss_validate(NULL, s))
     return -1;
 
   return spans_str_free(&s->str);

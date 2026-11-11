@@ -388,6 +388,7 @@ This can return an error code which are:
 */
 CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
                                  const int                        bin_op_lvl,
+                                       cst_cstnode_t       *restr prev,
                                        cst_cstnode_t       *restr lhs,
                                        size_t              *restr ltstart);
 
@@ -483,7 +484,7 @@ CST_LIB void cst_cstnode_free(cst_cstnode_t *cn);
 /* - Parsers - */
 #define parse_cst_label(ltvec)                      cst_parse_cst_label(ltvec)
 #define parse_paren_cst(ltvec, ltstart)             cst_parse_paren_cst(ltvec, ltstart)
-#define parse_bin_op_cst(ltvec, prev_expr, ltstart) cst_parse_bin_op_cst(ltvec, prev_expr, ltstart)
+#define parse_bin_op_cst(ltvec, lhs, ltstart) cst_parse_bin_op_cst(ltvec, lhs, ltstart)
 #define parse__primary_cst(ltvec, ltstart)          cst_parse__primary_cst(ltvec, ltstart)
 #define parse_expr_cst(ltvec, main_node, ltstart)   cst_parse_expr_cst(ltvecm main_node, ltstart)
 
@@ -757,34 +758,30 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
       break;
     }
 
-    cst_cstnode_t lhs = (cst_cstnode_t) {
+    cst_cstnode_t bin_op_node = (cst_cstnode_t) {
+      .type = CNT_PR_BIN_OP,
+      .span = ltok.span,
+    };
+    const cst_cstnode_t lhs = (cst_cstnode_t) {
       .type = ctype,
       .span = ltok.span,
     };
+    cst_cstnode_t *alloc_node = cst_convert_cn_to_alloc(lhs);
+    if (!alloc_node)
+      CST_PANIC("Failed to allocate node for lhs in cst_parse_cst_line().");
+
+    cst_cstnode_push_child(&bin_op_node, alloc_node);
+
     cur_idx++;
-    const int rval = cst_parse_bin_op_cst(ltvec, -1, &lhs, &cur_idx);
+    const int rval = cst_parse_bin_op_cst(ltvec, -1, bin_op_node.child, &cur_idx);
 
     if (!rval)
       goto Error;
 
-    cst_cstnode_t *alloc_node = cst_convert_cn_to_alloc(lhs);
+    alloc_node = cst_convert_cn_to_alloc(bin_op_node);
     if (!alloc_node)
-      CST_PANIC("Failed to allocate node for lhs in cst_parse_cst_line().");
+      CST_PANIC("Failed to allocate node for binary operator in cst_parse_cst_line().");
     cst_cstnode_push_next(&out, alloc_node);
-    /*
-      bm:current
-      This is where we currently are, as you can see I have
-      refactored this piece of code right here, I think the
-      problem will arise is that the binary operator parser
-      does not think the lhs is supposed to be a binary
-      operator node, not an actual left hand side node.
-
-      Else I think it should be apparent that I'm not
-      handling the return value of this yet, so go do that
-      I think.
-
-      I am quite hungry.
-    */
 
     cst_consume_cst_if_space(ltvec, &out.span, &cur_idx);
 
@@ -1449,6 +1446,8 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
 CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
                                  const int                        bin_op_lvl,
+                                 cst_cstnode_t       *restr bin_op, /* bm:current NOTE: You should finish figuring this out good luck. */
+                                       cst_cstnode_t       *restr prev,
                                        cst_cstnode_t       *restr lhs,
                                        size_t              *restr ltstart)
 {
@@ -1477,21 +1476,26 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
   int detected_bin_op_lvl = 3;
 
-  if (!blexer_tt_is_op_lvl_3(op.type)) detected_bin_op_lvl--;
+  if (!blexer_tt_is_op_lvl_3(op.type))
+    detected_bin_op_lvl--;
 
   if (!blexer_tt_is_op_lvl_2(op.type) &&
-      detected_bin_op_lvl == 2) detected_bin_op_lvl--;
+      detected_bin_op_lvl == 2)
+    detected_bin_op_lvl--;
 
   if (!blexer_tt_is_op_lvl_1(op.type) &&
-      detected_bin_op_lvl == 1) detected_bin_op_lvl--;
+      detected_bin_op_lvl == 1)
+    detected_bin_op_lvl--;
 
   if (bin_op_lvl == -1)
     return cst_parse_bin_op_cst(ltvec,
                                 detected_bin_op_lvl,
+                                prev,
                                 lhs,
                                 ltstart);
 
-  if (bin_op_lvl < detected_bin_op_lvl) return 1;
+  if (bin_op_lvl < detected_bin_op_lvl)
+    return 1;
 
   const cst_cstnode_type_t cnt = cst_tt_op_to_cnt(op.type);
   cst_cstnode_t op_cn = (cst_cstnode_t) {
@@ -1501,7 +1505,17 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
   if (bin_op_lvl > detected_bin_op_lvl)
   {
-    const int rval = cst_parse_bin_op_cst(ltvec, detected_bin_op_lvl, &op_cn, ltstart);
+    if (!prev)
+      return cst_parse_bin_op_cst(ltvec,
+                                  detected_bin_op_lvl,
+                                  prev, lhs,
+                                  ltstart);
+
+    cst_cstnode_push_child(prev, lhs);
+    const int rval = cst_parse_bin_op_cst(ltvec,
+                                          detected_bin_op_lvl,
+                                          NULL, prev->child,
+                                          ltstart);
     if (rval < 0)
       return rval;
   }
@@ -1526,9 +1540,14 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
     *ltstart = local_cur_idx;
     return cst_parse_bin_op_cst(ltvec,
                                 bin_op_lvl,
-                                lhs,
+                                lhs->next,
+                                lhs->next->next,
                                 ltstart);
   }
+
+  cst_cstnode_t bin_op_node = (cst_cstnode_t) {
+    .type = CNT_PR_BIN_OP,
+  };
 
   return 0;
 }
