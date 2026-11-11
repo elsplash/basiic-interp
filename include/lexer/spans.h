@@ -1121,10 +1121,12 @@ SPANS_LS_LIB spans_ls_table_t spans_ls_fetch_file(const char *restr filepath)
   {
     ls_push.str = spans_str_creat();
 
-    while ((cur = fgetc(f)) != EOF && cur != '\n')
+    while ((cur = fgetc(f)) != EOF)
     {
       if (spans_str_pushr_chr(&ls_push.str, (char) cur) < 0)
         SPANS_PANIC("Failed to push character in spans_ls_fetch_file().");
+      if (cur == '\n')
+        break;
     }
 
     ls_push.num = lnum;
@@ -1143,10 +1145,10 @@ SPANS_LS_LIB char* spans_ls_fetch_self(const spans_linespan_t *restr l,
   if (!spans_ls_validate(l))
     return NULL;
 
-  if (l->str.len < start)
+  if (l->str.len <= start)
     return NULL;
 
-  if (l->str.len <= start + len)
+  if (l->str.len < start + len)
     return NULL;
 
   char *o = calloc(len + 1, 1);

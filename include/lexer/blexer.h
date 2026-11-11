@@ -563,6 +563,9 @@ BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
 #define fetch_n_push(l, out, stat, l_idx, start, len) blexer_fetch_n_push(l, out, stat, l_idx, start, len)
 
 /* -- BLEXER LIBRARY -- */
+/* - Helper - */
+#define tokenize_string(l, l_idx, start, len) blexer_tokenize_string(l, l_idx, start, len)
+
 /* - Interface - */
 #define tokenize_line(l, l_idx) blexer_tokenize_line(l, l_idx)
 
@@ -1087,11 +1090,10 @@ BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
 
   for (size_t i = 0; i < ltvec->len; i++)
   {
-    if (blexer_ltok_free(&ltvec->ptr[i]) != 0) return i;
+    if (blexer_ltok_free(&ltvec->ptr[i]) != 0)
+      return i;
   }
 
-  free(ltvec->ptr);
-  ltvec->ptr = NULL;
   return 0;
 }
 
@@ -1178,8 +1180,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
         len   = 1;
         start = i;
-        break;
-
+        /* Fallthrough */
       case LEXST_ETC:
         stat  = LEXST_ID;
         break;
@@ -1205,8 +1206,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
         len = 1;
         start = i;
-        break;
-
+        /* Fallthrough */
       case LEXST_ETC:
         stat = LEXST_NUM;
         break;
@@ -1219,7 +1219,22 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
     else if (c == ' ' && stat == LEXST_SPACE)
       continue;
 
-    if (len > 1 && stat != LEXST_ETC)
+    if (c == '\n')
+    {
+      if (len - 1 != 0) 
+        blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
+
+      len   = 1;
+      start = i;
+
+      const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
+      blexer_ltvec_push(&out, (blexer_lextoken_t) { /* bm:current */
+        .span = ss,
+        .type = TT_NEWLINE,
+      });
+      break;
+    }
+    else if (len > 1 && stat != LEXST_ETC)
     {
       if ((stat == LEXST_ID || stat == LEXST_ALNUM) &&
           l->str.__s[i] == ':')
@@ -1232,21 +1247,10 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
       start = i;
       stat = LEXST_ETC;
     }
-    else if (c == '\n')
-    {
-      if (len - 1 != 0) blexer_fetch_n_push(l, &out, stat, l_idx, start, len - 1);
-      len   = 1;
-      start = i;
-      const spans_strspan_t ss = spans_ss_init(l, l_idx, start, len);
-      blexer_ltvec_push(&out, (blexer_lextoken_t) {
-        .span = ss,
-        .type = TT_NEWLINE,
-      });
-      break;
-    }
+
 
     blexer_tokentype_t token_type = TT_NS_ID;
-    switch (c)
+    switch (l->str.__s[i]) /* Use this since the index can chage before c updates. */
     {
     case ' ':
       stat = LEXST_SPACE;
@@ -1370,7 +1374,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         i += string_len;
       }
       start = -1;
-      len   =  1;
+      len   =  0;
       continue;
 
     case ';':
@@ -1442,7 +1446,7 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
     len   =  0;
   }
 
-  if (--len > 0)
+  if (len > 0)
     blexer_fetch_n_push(l, &out, stat, l_idx, start, len);
 
   return out;
