@@ -559,7 +559,7 @@ BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
 #define tt_is_op_lvl_3(tt) blexer_tt_is_op_lvl_3(tt)
 
 /* - Creation - */
-#define ltvec_creat()                                 blexer_ltvec_creat()
+#define ltvec_creat() blexer_ltvec_creat()
 
 /* - Manipulation - */
 #define ltvec_push(ltv, p)                            blexer_ltvec_push(ltv, p)
@@ -573,8 +573,8 @@ BLEXER_LIB int blexer_detect_errs(const spans_ls_table_t *restr lt,
 #define tokenize_line(l, l_idx) blexer_tokenize_line(l, l_idx)
 
 /* - Misc. - */
-#define ltvec_free(ltvec)       blexer_ltvec_free(ltvec)
-#define ltok_free(ltok)         blexer_ltok_free(ltok)
+#define ltvec_free(ltvec) blexer_ltvec_free(ltvec)
+#define ltok_free(ltok)   blexer_ltok_free(ltok)
 
 /* --- IMPLEMENTATION --- */
 
@@ -663,10 +663,10 @@ BLEXER_STATIC blexer_lextoken_t blexer_ltvec_fetch(const blexer_lextok_vec_t *re
                                                    const size_t                     idx)
 {
   if (!blexer_ltvec_validate(ltvec))
-    BLEXER_PANIC("ltvec is not valid in blexer_ltvec_fetch()");
+    BLEXER_PANIC("ltvec is not valid in blexer_ltvec_fetch().");
 
-  if (idx < ltvec->len)
-    BLEXER_PANIC("idx is out of bound sin blexer_ltvec_fetch");
+  if (ltvec->len < idx)
+    BLEXER_PANIC("idx is out of bounds in blexer_ltvec_fetch().");
 
   return ltvec->ptr[idx];
 }
@@ -1079,24 +1079,24 @@ BLEXER_STATIC void blexer_fetch_n_push(const spans_linespan_t     *restr l,
 BLEXER_LIB int blexer_ltok_free(blexer_lextoken_t *restr ltok)
 {
   if (!ltok)
-    return -1;
+    return 0;
 
-  spans_ss_free(&ltok->span);
-
-  return 0;
+  return spans_ss_free(&ltok->span);
 }
 
 BLEXER_LIB int blexer_ltvec_free(blexer_lextok_vec_t *restr ltvec)
 {
   int rval = blexer_ltvec_validate(ltvec) - 1;
+  BLEXER_ASSERT(rval == 0, "ltvec is invalid in blexer_ltvec_free().");
   if (rval != 0) return rval; 
 
   for (size_t i = 0; i < ltvec->len; i++)
   {
-    if (blexer_ltok_free(&ltvec->ptr[i]) != 0)
+    if (!blexer_ltok_free(&ltvec->ptr[i]))
       return i;
   }
 
+  free(ltvec->ptr);
   ltvec->ptr = NULL;
 
   return 0;
@@ -1237,6 +1237,8 @@ BLEXER_LIB blexer_lextok_vec_t blexer_tokenize_line(const spans_linespan_t *rest
         .span = ss,
         .type = TT_NEWLINE,
       });
+      len   =  0;
+      start = -1;
       break;
     }
     else if (len > 1 && stat != LEXST_ETC)

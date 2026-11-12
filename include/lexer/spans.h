@@ -973,7 +973,6 @@ SPANS_STR_LIB char* spans_str_display(const spans_str_t *restr s)
 
 SPANS_STR_LIB int spans_str_free(spans_str_t *restrict s)
 {
-  SPANS_ASSERT(spans_str_validate(s), "s is invalid in spans_str_free(). (Probable double free)");
   if (!spans_str_validate(s))
     return 0;
 
@@ -1221,7 +1220,6 @@ SPANS_LS_LIB char* spans_ls_display(const spans_linespan_t *restr l)
 
 SPANS_LS_LIB int spans_ls_free(spans_linespan_t *restr l)
 {
-  SPANS_ASSERT(spans_ls_validate(l), "l is invalid in spans_ls_free(). (Probable double free)");
   if (!spans_ls_validate(l))
     return -1;
 
@@ -1420,7 +1418,6 @@ SPANS_SS_LIB spans_span_t spans_ss_to(const spans_ls_table_t *restr lt,
 
 SPANS_SS_LIB int spans_ss_free(spans_strspan_t *restr s)
 {
-  SPANS_ASSERT(spans_ss_validate(NULL, s), "s is invalid in spans_ss_free().");
   if (!spans_ss_validate(NULL, s))
     return -1;
 

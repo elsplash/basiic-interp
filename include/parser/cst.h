@@ -715,6 +715,8 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     }
   }
 
+  cst_consume_cst_if_space(ltvec, &out.span, &cur_idx);
+
   switch (ltvec->ptr[cur_idx].type)
   {
   case TT_SING_QUOT:
@@ -773,7 +775,7 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     cst_cstnode_push_child(&bin_op_node, alloc_node);
 
     cur_idx++;
-    const int rval = cst_parse_bin_op_cst(ltvec, -1, bin_op_node.child, &cur_idx);
+    const int rval = cst_parse_bin_op_cst(ltvec, -1, NULL, bin_op_node.child, &cur_idx);
 
     if (!rval)
       goto Error;
@@ -797,6 +799,7 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
     break;
 
   case TT_KW_RUN:
+    cur_idx++;
     if (!cst_consume_cst_if_space(ltvec, &out.span, &cur_idx)) goto Error;
 
     if (!cst_expect_ltok(ltvec, cur_idx, TT_NS_STRING) &&
@@ -817,8 +820,8 @@ CST_LIB cst_cstnode_t cst_parse_cst_line(const blexer_lextok_vec_t *restr ltvec)
       const int rval = cst_consume_cst_comment(ltvec, &out, &cur_idx);
       if (rval != 0) goto Error;
     }
-    else {/* There should be a function that checks if there's stil more lextokens, and errors if so. */}
-
+    else
+      cst_consume_remaining_cst(ltvec, &out, cur_idx);
   }
 
     break;
@@ -1249,7 +1252,7 @@ CST_LIB cst_cstnode_t cst_parse_cst_label(const blexer_lextok_vec_t *restr ltvec
   else if ((ltok.type == TT_NS_ID ||
             ltok.type == TT_NS_ALNUM) &&
            ltok.span.str .__s[ltok.span.str.len - 1]
-             == TT_COLON)
+             == ':')
     out.type = CNT_CH_ALNUM_LABEL;
   else {
     (*cur_idx)--;
@@ -1373,8 +1376,8 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
   if (!ltstart)
     return -3;
 
-  CST_ASSERT(ltvec->len <= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
-  if (ltvec->len > *ltstart)
+  CST_ASSERT(ltvec->len >= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
+  if (ltvec->len < *ltstart)
     return -4;
 
   cst_cstnode_t cn = (cst_cstnode_t) {
@@ -1446,7 +1449,6 @@ CST_LIB int cst_parse_un_op_cst(const blexer_lextok_vec_t *restr ltvec,
 
 CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
                                  const int                        bin_op_lvl,
-                                 cst_cstnode_t       *restr bin_op, /* bm:current NOTE: You should finish figuring this out good luck. */
                                        cst_cstnode_t       *restr prev,
                                        cst_cstnode_t       *restr lhs,
                                        size_t              *restr ltstart)
@@ -1463,8 +1465,8 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
   if (!ltstart)
     return -3;
 
-  CST_ASSERT(ltvec->len <= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
-  if (ltvec->len > *ltstart)
+  CST_ASSERT(ltvec->len >= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
+  if (ltvec->len < *ltstart)
     return -4;
 
   cst_consume_cst_if_space(ltvec, &lhs->span, ltstart);
@@ -1555,9 +1557,14 @@ CST_LIB int cst_parse_bin_op_cst(const blexer_lextok_vec_t *restr ltvec,
 CST_LIB cst_cstnode_t cst_parse_primary_cst(const blexer_lextok_vec_t *restr ltvec,
                                                    size_t              *restr ltstart)
 {
-  CST_ASSERT(blexer_ltvec_validate(ltvec), "ltvec is invalid in cst_parse_primary_cst().");
-  CST_ASSERT(ltstart, "ltstart is NULL in cst_parse_primary_cst().");
-  CST_ASSERT(ltvec->len <= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
+  if (!blexer_ltvec_validate(ltvec))
+    CST_PANIC("ltvec is invalid in cst_parse_primary_cst().");
+
+  if (!ltstart)
+    CST_PANIC("ltstart is NULL in cst_parse_primary_cst().");
+
+  if (ltvec->len < *ltstart)
+    CST_PANIC("ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
 
   const blexer_lextoken_t ltok = ltvec->ptr[*ltstart];
 
@@ -1682,8 +1689,8 @@ CST_LIB int cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,
   if (!ltstart)
     return -3;
 
-  CST_ASSERT(ltvec->len <= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
-  if (ltvec->len > *ltstart)
+  CST_ASSERT(ltvec->len >= *ltstart, "ltstart is out of bounds in ltvec in cst_parse_primary_cst().");
+  if (ltvec->len < *ltstart)
     return -4;
 
   cst_cstnode_t expr = cst_parse_primary_cst(ltvec, ltstart);
@@ -1707,7 +1714,7 @@ CST_LIB int cst_parse_expr_cst(const blexer_lextok_vec_t *restr ltvec,
 
   if (blexer_tt_is_bin_op(ltok.type))
   {
-    const int rval = cst_parse_bin_op_cst(ltvec, -1, main_node, ltstart);
+    const int rval = cst_parse_bin_op_cst(ltvec, -1, NULL, main_node, ltstart);
     if (!rval)
       return 0;
   }
