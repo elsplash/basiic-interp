@@ -845,8 +845,20 @@ SPANS_STR_LIB int spans_str_pushr_str(      spans_str_t *restr a,
   if (!spans_str_validate(b))
     return -2;
 
-  int rval = spans_str_pushr_chrp(a, b->__s);
-  if (rval != 0) return rval - 2;
+  switch (spans_str_reserve(a, b->len))
+  {
+  case -2:
+    return -4;
+  case -1:
+    return -3;
+  case 1:
+    /* Fallthrough */
+  case 0:
+    break;
+  }
+
+  memcpy(a->__s + a->len, b->__s, b->len);
+  a->len += b->len;
 
   return 0;
 }
@@ -862,8 +874,14 @@ SPANS_STR_LIB int spans_str_pushl_str(      spans_str_t *restr a,
   if (!spans_str_validate(b))
     return -2;
 
-  int rval = spans_str_pushl_chrp(a, b->__s);
-  if (rval != 0) return rval - 2;
+  char *chrp = calloc(b->len + 1, 1);
+  memcpy(chrp, b->__s, b->len);
+
+  int rval = spans_str_pushl_chrp(a, chrp);
+  if (rval != 0)
+    return rval - 2;
+
+  free(chrp);
 
   return 0;
 }
@@ -954,8 +972,14 @@ SPANS_STR_LIB int spans_str_insert_str(      spans_str_t *restr a,
   SPANS_ASSERT(spans_str_validate(b), "b is invalid in spans_str_insert_str().");
   if (!spans_str_validate(b)) return -2;
 
-  int rval = spans_str_insert_chrp(a, b->__s, idx);
-  if (rval != 0) return rval - 2;
+  char *chrp = calloc(b->len + 1, 1);
+  memcpy(chrp, b->__s, b->len);
+
+  int rval = spans_str_insert_chrp(a, chrp, idx);
+  if (rval != 0)
+    return rval - 2;
+
+  free(chrp);
 
   return 0;
 }
@@ -1344,7 +1368,8 @@ SPANS_SS_LIB int spans_ss_concat(      spans_strspan_t *restr a,
   if (a->l_idx != b->l_idx)
     return -2;
 
-  spans_str_pushr_chrp(&a->str, b->str.__s);
+  spans_str_pushr_str(&a->str, &b->str);
+
   return 0;
 }
 
